@@ -2,7 +2,7 @@
 ## Preparation
 1. Start with a clean ubuntu (latest version) (possibly minimal installation).
 
-Next, assert that ´python -V` is not installed, and that `python3 -V` is `3.6.8` or similar.
+Next, assert that `python -V` is not installed, and that `python3 -V` is `3.6.8` or similar.
 
 Next, some basic installs:
 ```
