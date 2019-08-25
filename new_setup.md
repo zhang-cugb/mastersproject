@@ -56,7 +56,7 @@ sudo apt install python3.6-tk
 
 # With conda
 
-Download conda: (
+Download conda: 
 ```
 wget https://repo.anaconda.com/archive/Anaconda3-2019.07-Linux-x86_64.sh
 ```
@@ -89,7 +89,7 @@ pip install -e .
 ```
 
 Results from building in conda:
-import of ipython fails:
+import of porepy fails:
 ```
 (pore) haakon@haakon-VirtualBox:~/porepy$ ipython
 Python 3.7.4 (default, Aug 13 2019, 20:35:49) 
@@ -135,5 +135,4 @@ Type "help", "copyright", "credits" or "license" for more information.
 /home/haakon/porepy/src/porepy/grids/partition.py:19: UserWarning: Could not import pymetis. Some functions will not work as    intended
   intended"
 >>> 
-
 ```
