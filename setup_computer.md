@@ -12,7 +12,9 @@ After ubuntu installation, navigate to "Devices" at top of VM window, click "Ins
 
 ### Prepare PorePy install
 Update system and install basic features:
-```sudo apt update && yes|sudo apt upgrade && sudo apt install -y wget git```
+```
+sudo apt update && yes|sudo apt upgrade && sudo apt install -y wget git
+```
 
 Setup a dedicated folder for all porepy related files
 ```
@@ -43,20 +45,20 @@ wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O co
 chmod +x conda.sh
 bash conda.sh -bp ~/.conda
 export PYTHONPATH=~/porepy
-```
-Note: select "yes" if asked to initialize conda, then restart shell.
-
-Update conda
-```
+export PATH=~/.conda/bin:$PATH
 conda update conda
+conda update --all
+conda init
 ```
+Restart shell when prompted.
+
 ### Install PorePy:
 Make sure you are in (base) conda env.
 ```
 cd ~/porepy
 git clone https://github.com/pmgbergen/porepy.git pp
-pip install -r requirements-dev.txt
 cd pp
+pip install -r requirements-dev.txt
 pip install .
 ```
 
