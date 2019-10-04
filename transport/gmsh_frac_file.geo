@@ -1,13 +1,11 @@
 
 // Define points
-p0 = newp; Point(p0) = {-2.0, -2.0, 0.0, 0.3 };
-p1 = newp; Point(p1) = {3.0, -2.0, 0.0, 0.3 };
-p2 = newp; Point(p2) = {3.0, 3.0, 0.0, 0.3 };
-p3 = newp; Point(p3) = {-2.0, 3.0, 0.0, 0.3 };
-p4 = newp; Point(p4) = {0.0, 0.0, 0.0, 0.2 };
-p5 = newp; Point(p5) = {2.0, 0.0, 0.0, 0.2 };
-p6 = newp; Point(p6) = {1.0, 0.0, 0.0, 0.2 };
-p7 = newp; Point(p7) = {1.0, 1.0, 0.0, 0.2 };
+p0 = newp; Point(p0) = {0.0, -2.0, 0.0, 0.3 };
+p1 = newp; Point(p1) = {5.0, -2.0, 0.0, 0.3 };
+p2 = newp; Point(p2) = {5.0, 3.0, 0.0, 0.3 };
+p3 = newp; Point(p3) = {0.0, 3.0, 0.0, 0.3 };
+p4 = newp; Point(p4) = {1.0, 0.0, 0.0, 0.2 };
+p5 = newp; Point(p5) = {4.0, 0.0, 0.0, 0.2 };
 // End of point specification
 
 // Start of specification of domain// Define lines that make up the domain boundary
@@ -33,19 +31,12 @@ Physical Surface("DOMAIN") = {domain_surf};
 // End of domain specification
 
 // Start specification of fractures/compartment boundary/auxiliary elements
-frac_line_0 = newl; Line(frac_line_0) = {p4, p6};
+frac_line_0 = newl; Line(frac_line_0) = {p4, p5};
 Line{frac_line_0} In Surface{domain_surf};
-frac_line_1 = newl; Line(frac_line_1) = {p5, p6};
-Line{frac_line_1} In Surface{domain_surf};
-Physical Line("FRACTURE_4") = { frac_line_0, frac_line_1 };
-
-frac_line_2 = newl; Line(frac_line_2) = {p6, p7};
-Line{frac_line_2} In Surface{domain_surf};
-Physical Line("FRACTURE_5") = { frac_line_2 };
+Physical Line("FRACTURE_4") = { frac_line_0 };
 
 // End of /compartment boundary/auxiliary elements specification
 
 // Start physical point specification
-Physical Point("FRACTURE_POINT_0") = {p6};
 // End of physical point specification
 
