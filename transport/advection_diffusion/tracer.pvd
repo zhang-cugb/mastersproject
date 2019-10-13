@@ -1,0 +1,67 @@
+<?xml version="1.0"?>
+<VTKFile type="Collection" version="0.1" byte_order="LittleEndian" compressor="vtkZLibDataCompressor">
+<Collection>
+	<DataSet group="" part="" timestep="0.000000" file="tracer_1_000000.vtu"/>
+	<DataSet group="" part="" timestep="0.000000" file="tracer_2_000000.vtu"/>
+	<DataSet group="" part="" timestep="0.100000" file="tracer_1_0000.1.vtu"/>
+	<DataSet group="" part="" timestep="0.100000" file="tracer_2_0000.1.vtu"/>
+	<DataSet group="" part="" timestep="0.200000" file="tracer_1_0000.2.vtu"/>
+	<DataSet group="" part="" timestep="0.200000" file="tracer_2_0000.2.vtu"/>
+	<DataSet group="" part="" timestep="0.300000" file="tracer_1_0.30000000000000004.vtu"/>
+	<DataSet group="" part="" timestep="0.300000" file="tracer_2_0.30000000000000004.vtu"/>
+	<DataSet group="" part="" timestep="0.400000" file="tracer_1_0000.4.vtu"/>
+	<DataSet group="" part="" timestep="0.400000" file="tracer_2_0000.4.vtu"/>
+	<DataSet group="" part="" timestep="0.500000" file="tracer_1_0000.5.vtu"/>
+	<DataSet group="" part="" timestep="0.500000" file="tracer_2_0000.5.vtu"/>
+	<DataSet group="" part="" timestep="0.600000" file="tracer_1_0000.6.vtu"/>
+	<DataSet group="" part="" timestep="0.600000" file="tracer_2_0000.6.vtu"/>
+	<DataSet group="" part="" timestep="0.700000" file="tracer_1_0000.7.vtu"/>
+	<DataSet group="" part="" timestep="0.700000" file="tracer_2_0000.7.vtu"/>
+	<DataSet group="" part="" timestep="0.800000" file="tracer_1_0.7999999999999999.vtu"/>
+	<DataSet group="" part="" timestep="0.800000" file="tracer_2_0.7999999999999999.vtu"/>
+	<DataSet group="" part="" timestep="0.900000" file="tracer_1_0.8999999999999999.vtu"/>
+	<DataSet group="" part="" timestep="0.900000" file="tracer_2_0.8999999999999999.vtu"/>
+	<DataSet group="" part="" timestep="1.000000" file="tracer_1_0.9999999999999999.vtu"/>
+	<DataSet group="" part="" timestep="1.000000" file="tracer_2_0.9999999999999999.vtu"/>
+	<DataSet group="" part="" timestep="1.100000" file="tracer_1_1.0999999999999999.vtu"/>
+	<DataSet group="" part="" timestep="1.100000" file="tracer_2_1.0999999999999999.vtu"/>
+	<DataSet group="" part="" timestep="1.200000" file="tracer_1_0001.2.vtu"/>
+	<DataSet group="" part="" timestep="1.200000" file="tracer_2_0001.2.vtu"/>
+	<DataSet group="" part="" timestep="1.300000" file="tracer_1_0001.3.vtu"/>
+	<DataSet group="" part="" timestep="1.300000" file="tracer_2_0001.3.vtu"/>
+	<DataSet group="" part="" timestep="1.400000" file="tracer_1_1.4000000000000001.vtu"/>
+	<DataSet group="" part="" timestep="1.400000" file="tracer_2_1.4000000000000001.vtu"/>
+	<DataSet group="" part="" timestep="1.500000" file="tracer_1_1.5000000000000002.vtu"/>
+	<DataSet group="" part="" timestep="1.500000" file="tracer_2_1.5000000000000002.vtu"/>
+	<DataSet group="" part="" timestep="1.600000" file="tracer_1_1.6000000000000003.vtu"/>
+	<DataSet group="" part="" timestep="1.600000" file="tracer_2_1.6000000000000003.vtu"/>
+	<DataSet group="" part="" timestep="1.700000" file="tracer_1_1.7000000000000004.vtu"/>
+	<DataSet group="" part="" timestep="1.700000" file="tracer_2_1.7000000000000004.vtu"/>
+	<DataSet group="" part="" timestep="1.800000" file="tracer_1_1.8000000000000005.vtu"/>
+	<DataSet group="" part="" timestep="1.800000" file="tracer_2_1.8000000000000005.vtu"/>
+	<DataSet group="" part="" timestep="1.900000" file="tracer_1_1.9000000000000006.vtu"/>
+	<DataSet group="" part="" timestep="1.900000" file="tracer_2_1.9000000000000006.vtu"/>
+	<DataSet group="" part="" timestep="2.000000" file="tracer_1_2.0000000000000004.vtu"/>
+	<DataSet group="" part="" timestep="2.000000" file="tracer_2_2.0000000000000004.vtu"/>
+	<DataSet group="" part="" timestep="2.100000" file="tracer_1_2.1000000000000005.vtu"/>
+	<DataSet group="" part="" timestep="2.100000" file="tracer_2_2.1000000000000005.vtu"/>
+	<DataSet group="" part="" timestep="2.200000" file="tracer_1_2.2000000000000006.vtu"/>
+	<DataSet group="" part="" timestep="2.200000" file="tracer_2_2.2000000000000006.vtu"/>
+	<DataSet group="" part="" timestep="2.300000" file="tracer_1_2.3000000000000007.vtu"/>
+	<DataSet group="" part="" timestep="2.300000" file="tracer_2_2.3000000000000007.vtu"/>
+	<DataSet group="" part="" timestep="2.400000" file="tracer_1_2.400000000000001.vtu"/>
+	<DataSet group="" part="" timestep="2.400000" file="tracer_2_2.400000000000001.vtu"/>
+	<DataSet group="" part="" timestep="2.500000" file="tracer_1_2.500000000000001.vtu"/>
+	<DataSet group="" part="" timestep="2.500000" file="tracer_2_2.500000000000001.vtu"/>
+	<DataSet group="" part="" timestep="2.600000" file="tracer_1_2.600000000000001.vtu"/>
+	<DataSet group="" part="" timestep="2.600000" file="tracer_2_2.600000000000001.vtu"/>
+	<DataSet group="" part="" timestep="2.700000" file="tracer_1_2.700000000000001.vtu"/>
+	<DataSet group="" part="" timestep="2.700000" file="tracer_2_2.700000000000001.vtu"/>
+	<DataSet group="" part="" timestep="2.800000" file="tracer_1_2.800000000000001.vtu"/>
+	<DataSet group="" part="" timestep="2.800000" file="tracer_2_2.800000000000001.vtu"/>
+	<DataSet group="" part="" timestep="2.900000" file="tracer_1_2.9000000000000012.vtu"/>
+	<DataSet group="" part="" timestep="2.900000" file="tracer_2_2.9000000000000012.vtu"/>
+	<DataSet group="" part="" timestep="3.000000" file="tracer_1_3.0000000000000013.vtu"/>
+	<DataSet group="" part="" timestep="3.000000" file="tracer_2_3.0000000000000013.vtu"/>
+</Collection>
+</VTKFile>
