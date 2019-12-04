@@ -1,0 +1,7 @@
+Depth	Azimuth	Dip	Aperture	Type
+m	deg	deg	mm	 NaN
+7.39	147.77	75.23	0.00	Foliation
+12.96	154.02	77.18	0.00	Foliation
+13.99	151.67	67.64	7.77	Quartz
+16.58	149.66	75.28	0.00	Foliation
+17.02	159.65	59.58	8.04	Fracture

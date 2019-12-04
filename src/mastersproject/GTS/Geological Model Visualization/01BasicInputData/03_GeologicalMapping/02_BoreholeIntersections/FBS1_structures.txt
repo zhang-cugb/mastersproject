@@ -1,0 +1,70 @@
+Depth	Azimuth	Dip	Aperture	Type
+m	deg	deg	mm	 NaN
+2.35	169.30	57.47	334.61	Minor ductile Shear-zone
+2.99	162.65	58.83	35.70	Minor ductile Shear-zone
+3.27	172.09	58.07	0.00	Foliation
+5.02	163.86	61.26	578.25	Minor ductile Shear-zone
+6.76	169.90	66.49	0.00	Foliation
+7.07	154.03	59.73	0.00	Fracture
+7.86	94.83	50.45	0.00	Fracture
+8.07	110.55	51.87	0.00	Fracture
+10.95	168.97	67.81	0.00	Fracture
+10.98	165.93	76.38	0.00	Fracture
+11.53	154.08	71.67	0.00	Fracture
+11.68	135.96	64.57	73.47	Quartz
+16.11	167.07	43.69	0.00	Fracture
+17.60	191.31	39.43	0.00	Fracture
+18.40	159.81	77.24	0.00	Fracture
+20.60	177.02	50.14	2058.24	S1 Shear-zone
+22.63	174.21	81.76	0.00	Foliation
+23.21	148.18	19.07	0.00	Fracture
+23.34	140.51	26.14	235.14	S3 Shear-zone
+23.49	207.18	29.91	0.00	Fracture
+23.74	219.45	57.74	0.00	Fracture
+24.11	272.18	63.57	3.35	Fracture
+25.07	244.39	74.77	0.00	Fracture
+25.47	268.15	70.68	0.00	Fracture
+26.45	160.15	72.39	0.00	Fracture
+26.70	253.94	61.39	0.00	Fracture
+26.77	162.51	55.52	7.88	Fracture
+27.65	177.65	38.65	2.43	Fracture
+27.79	188.43	36.10	0.00	Fracture
+27.83	175.64	38.55	298.08	S3 Shear-zone
+27.92	186.28	46.61	0.00	Fracture
+27.99	184.17	41.44	0.00	Fracture
+28.18	47.26	63.34	0.00	Fracture
+28.72	184.11	44.92	0.77	Fracture
+28.77	183.79	42.47	82.94	S3 Shear-zone
+28.82	171.29	49.31	0.00	Fracture
+28.90	176.11	53.58	0.00	Fracture
+29.81	169.79	59.86	0.00	Fracture
+29.92	172.57	53.32	0.00	Fracture
+29.93	168.40	51.51	0.00	Fracture
+30.80	171.22	62.71	0.00	Fracture
+30.93	171.02	70.84	0.00	Fracture
+31.09	168.02	75.22	847.39	S1 Shear-zone
+31.26	177.48	59.12	0.00	Fracture
+31.52	166.43	50.34	0.00	Fracture
+31.54	164.66	55.88	0.00	Fracture
+31.89	177.60	61.10	23.94	Quartz
+33.61	162.64	57.12	0.00	Fracture
+33.80	354.63	89.27	38.06	Quartz
+35.83	196.94	45.83	0.00	Fracture
+36.05	170.44	53.09	1228.13	S1 Shear-zone
+36.43	164.16	58.37	0.00	Fracture
+38.15	174.77	58.18	0.00	Fracture
+38.57	161.81	57.56	0.00	Fracture
+38.92	165.95	69.36	0.00	Fracture
+38.96	176.33	56.77	0.00	Fracture
+39.01	178.61	45.99	0.00	Fracture
+39.31	162.46	52.11	0.00	Fracture
+41.01	149.04	44.79	0.00	Fracture
+41.35	160.88	65.61	0.00	Fracture
+41.57	164.80	71.38	0.00	Fracture
+42.07	170.79	68.29	0.00	Fracture
+42.44	164.13	74.91	1513.55	S1 Shear-zone
+42.88	171.05	70.93	8.33	Fracture
+42.93	168.63	74.60	0.00	Fracture
+43.07	164.73	75.07	0.00	Fracture
+43.11	155.42	85.94	6.79	Fracture
+43.16	152.35	67.30	0.00	Fracture

@@ -1,0 +1,15 @@
+% S1_1 Patches
+patches.S11(1,1:3) = [{'VE'}, {'FBS1'}, {'INJ1'}];
+patches.S11(2,1:3) = [{'INJ1'},{'FBS1'},{'PRP2'}];
+patches.S11(3,1:3) = [{'INJ1'},{'FBS1'},{'PRP1'}];
+patches.S11(4,1:3) = [{'PRP1'},{'PRP2'},{'INJ2'}];
+patches.S11(5,1:3) = [{'AU'},{'PRP3'},{'INJ2'}];
+patches.S11(6,1:3) = [{'PRP3'},{'INJ2'},{'PRP2'}];
+patches.S11(7,1:3) = [{'PRP2'},{'FBS1'},{'PRP1'}];
+patches.S11(8,1:3) = [{'PRP3'},{'GEO3'},{'FBS2'}];
+patches.S11(9,1:3) = [{'PRP3'},{'GEO3'},{'GEO4'}];
+patches.S11(10,1:3) = [{'PRP2'},{'GEO3'},{'GEO4'}];
+patches.S11(11,1:3) = [{'PRP3'},{'AU'},{'GEO4'}]; 
+patches.S11(12,1:3) = [{'FBS1'},{'VE'},{'PRP2'}]; 
+patches.S11(13,1:3) = [{'GEO4'},{'VE'},{'FBS1'}]; 
+patches.S11(14,1:3) = [{'GEO4'},{'VE'},{'AU'}]; 

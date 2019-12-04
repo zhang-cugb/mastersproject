@@ -1,0 +1,3 @@
+The file Tunnel_intersections.txt contains coordinates for the shear zones that intersect the tunnels. For each shear zone the following information are given: One coordinate the represents the middle of the shear zone (i.e., with respect to its thickness), and true dip direction and dip.
+
+Additionally, each shear zone has a .txt-file with three coordinates per tunnel intersection (midpoints). And files for the northern and southern boundary.

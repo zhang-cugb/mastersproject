@@ -1,0 +1,7 @@
+%S1_3 Patches
+patches.S13(1,1:3) = [{'PRP1'},{'INJ2'},{'FBS1'}];
+patches.S13(2,1:3) = [{'FBS1'},{'PRP1'},{'VE'}];
+patches.S13(3,1:3) = [{'PRP2'},{'FBS1'},{'VE'}];
+patches.S13(4,1:3) = [{'AU'},{'PRP2'},{'INJ2'}];
+patches.S13(5,1:3) = [{'FBS1'},{'INJ2'},{'PRP2'}];
+patches.S13(6,1:3) = [{'AU'},{'VE'},{'PRP2'}];         

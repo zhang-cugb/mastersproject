@@ -1,0 +1,16 @@
+Depth	Azimuth	Dip	Aperture	Type
+m	deg	deg	mm	 NaN
+3.71	66.24	9.14	4.53	Quartz
+8.08	168.34	85.38	0.00	Fracture
+9.14	188.08	89.59	0.00	Fracture
+9.61	0.99	89.76	0.00	Fracture
+11.00	169.00	67.71	95.07	Quartz
+14.92	6.34	76.31	0.00	Fracture
+15.18	5.79	78.81	0.00	Fracture
+16.62	355.67	83.58	0.00	Fracture
+18.82	168.25	78.73	29.00	Quartz
+19.01	170.38	89.86	0.00	Fracture
+23.82	203.70	71.71	32.30	Quartz
+26.57	340.23	84.44	0.00	Fracture
+26.92	343.44	84.79	0.00	Fracture
+27.95	338.94	87.47	2087.20	S1 Shear-zone

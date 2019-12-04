@@ -1,0 +1,20 @@
+Depth	Azimuth	Dip	Aperture	Type
+m	deg	deg	mm	 NaN
+11.94	338.37	84.39	0.00	Fracture
+13.10	62.59	29.13	0.00	Fracture
+13.22	121.18	64.85	24.43	Quartz
+13.50	141.38	71.58	27.30	Minor ductile Shear-zone
+18.93	153.60	82.54	0.00	Fracture
+20.05	168.54	66.49	0.00	Fracture
+20.79	145.01	83.18	0.00	Fracture
+22.29	201.27	81.35	0.00	Biotite Band
+23.38	78.89	16.56	0.00	Biotite Band
+24.35	136.87	46.79	39.49	Quartz
+27.29	140.47	77.34	0.00	Fracture
+31.93	345.51	87.11	0.00	Fracture
+32.08	164.85	79.96	0.00	Fracture
+32.23	169.11	67.63	0.00	Fracture
+32.40	165.52	68.12	0.00	Fracture
+32.57	147.38	75.28	1268.23	S1 Shear-zone
+33.01	143.64	70.43	0.00	Fracture
+33.03	146.11	67.63	0.00	Fracture

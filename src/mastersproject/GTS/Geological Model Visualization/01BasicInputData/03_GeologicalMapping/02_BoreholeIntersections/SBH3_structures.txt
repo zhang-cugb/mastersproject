@@ -1,0 +1,16 @@
+Depth	Azimuth	Dip	Aperture	Type
+m	deg	deg	mm	 NaN
+1.76	239.29	86.44	1.89	Fracture
+2.26	252.34	77.18	1.83	Fracture
+2.66	147.85	57.81	2.68	Fracture
+4.12	134.59	78.93	0.00	Foliation
+4.93	60.87	82.77	1.25	Fracture
+8.32	156.06	59.41	738.62	Minor ductile Shear-zone
+10.42	150.71	74.63	0.00	Foliation
+11.22	143.95	80.58	10.04	Quartz
+12.18	146.00	73.98	997.93	Minor ductile Shear-zone
+14.91	142.83	64.47	3.84	Fracture
+17.31	142.82	60.65	294.86	Minor ductile Shear-zone
+17.92	178.11	88.72	0.00	Minor ductile Shear-zone
+18.07	147.17	66.02	0.00	Foliation
+19.41	121.89	46.11	0.00	Foliation
