@@ -1,17 +1,17 @@
 Geometry.Tolerance = 1.6666666666666667e-09;
 // Define points
-p0 = newp; Point(p0) = {0.0, 1.0, 1.0, 2.0 };
-p1 = newp; Point(p1) = {2.0, 1.0, 1.0, 2.0 };
-p2 = newp; Point(p2) = {1.0, 0.0, 0.0, 2.0 };
-p3 = newp; Point(p3) = {0.0, 0.0, 0.0, 2.0 };
-p4 = newp; Point(p4) = {-2.0, -2.0, 3.0, 2.0 };
-p5 = newp; Point(p5) = {-2.0, -2.0, -3.0, 2.0 };
-p6 = newp; Point(p6) = {-2.0, 3.0, -3.0, 2.0 };
-p7 = newp; Point(p7) = {-2.0, 3.0, 3.0, 2.0 };
-p8 = newp; Point(p8) = {3.0, -2.0, 3.0, 2.0 };
-p9 = newp; Point(p9) = {3.0, -2.0, -3.0, 2.0 };
-p10 = newp; Point(p10) = {3.0, 3.0, -3.0, 2.0 };
-p11 = newp; Point(p11) = {3.0, 3.0, 3.0, 2.0 };
+p0 = newp; Point(p0) = {0.0, 1.0, 1.0, 0.2 };
+p1 = newp; Point(p1) = {2.0, 1.0, 1.0, 0.2 };
+p2 = newp; Point(p2) = {1.0, 0.0, 0.0, 0.2 };
+p3 = newp; Point(p3) = {0.0, 0.0, 0.0, 0.2 };
+p4 = newp; Point(p4) = {-2.0, -2.0, 3.0, 1.0 };
+p5 = newp; Point(p5) = {-2.0, -2.0, -3.0, 1.0 };
+p6 = newp; Point(p6) = {-2.0, 3.0, -3.0, 1.0 };
+p7 = newp; Point(p7) = {-2.0, 3.0, 3.0, 1.0 };
+p8 = newp; Point(p8) = {3.0, -2.0, 3.0, 1.0 };
+p9 = newp; Point(p9) = {3.0, -2.0, -3.0, 1.0 };
+p10 = newp; Point(p10) = {3.0, 3.0, -3.0, 1.0 };
+p11 = newp; Point(p11) = {3.0, 3.0, 3.0, 1.0 };
 // End of point specification
 
 // Define lines 

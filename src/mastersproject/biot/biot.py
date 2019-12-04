@@ -4,6 +4,10 @@ import scipy.sparse as sps
 from porepy.models.contact_mechanics_biot_model import ContactMechanicsBiot
 
 
+class FullBiotSetup(ContactMechanicsBiot):
+    pass
+
+
 class SingleFracSetupBiot(ContactMechanicsBiot):
 
     def __init__(self, time_step=1):
@@ -41,11 +45,13 @@ class SingleFracSetupBiot(ContactMechanicsBiot):
         f_1 = pp.Fracture(np.array([[0, 1, 2, 0], [0, 0, 1, 1], [0, 0, 1, 1]]))
 
         network = pp.FractureNetwork3d([f_1], domain=domain)
-        mesh_args = {'mesh_size_frac': 2, 'mesh_size_min': 2, 'mesh_size_bound': 2}
+        mesh_args = {'mesh_size_frac': 0.2, 'mesh_size_min': 0.2, 'mesh_size_bound': 1}
         gb = network.mesh(mesh_args, ensure_matching_face_cell=False)
         self.gb = gb
         self.Nd = self.gb.dim_max
         pp.contact_conditions.set_projections(self.gb)
+        print("Number of cells 3D grid ", self.gb.grids_of_dimension(3)[0].num_cells)
+        breakpoint()
 
     def bc_values_scalar(self, g):
         """ Set boundary values to 1 (Neumann) on top face.
@@ -96,7 +102,7 @@ class SingleFracSetupBiot(ContactMechanicsBiot):
 
 def run_model():
     """ Set up and run the biot model.
-    The setup class should already be set up."""
+    """
     model = SingleFracSetupBiot()
     model.prepare_simulation()
     model.init_viz()
@@ -111,7 +117,7 @@ def run_model():
     g2_list = model.gb.grids_of_dimension(2)
     for g in g2_list:
         data = model.gb.node_props(g)
-        data[pp.STATE]['u_'] = np.zeros((g.dim, g.num_cells))
+        data[pp.STATE]['u_'] = np.zeros((3, g.num_cells))
 
     # Get the 3D data.
     g3 = model.gb.grids_of_dimension(3)[0]
