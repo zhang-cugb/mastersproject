@@ -51,7 +51,7 @@ class GeologicalModel:
         # 6. Step: First linear interpolation between geological observations ==========================================
         # Define a linear interpolation between mapped shear zone coordinates that belong to the same set.
         # Note: True local orientations are disregarded.
-        sz1 = self.shearzones_patches()
+        self.sz = self.shearzones_patches()
 
     def drill_boreholes(self):
         """ Fetch the borehole coordinates.
@@ -227,9 +227,24 @@ class GeologicalModel:
             for d_i, d in enumerate(xyz):
                 sz[sz_id][d] = np.append(sz[sz_id][d], tunnel[d_i])
 
-        breakpoint()
-        # BUILD PATCHES
+        return sz
 
+    def export_intersections(self):
+        """ Export intersection points for each shear zone"""
+        sz = self.sz
+        intxs = {}
+
+        for key in list(sz.keys()):
+            x = np.vstack((sz[key]['x'], sz[key]['y'], sz[key]['z']))
+
+            # Assert that one coordinate dimension is nan exactly when all dimensions are.
+            cond = np.isnan(x)
+            assert(np.all(np.equal(np.all(cond, 0), np.any(cond, 0))))
+
+            x = x[:, np.logical_not(cond[0])]  # fetch not nan points.
+            intxs[key] = np.copy(x)
+
+        return intxs
 
 
 
