@@ -51,6 +51,7 @@ class GeologicalModel:
         # 6. Step: First linear interpolation between geological observations ==========================================
         # Define a linear interpolation between mapped shear zone coordinates that belong to the same set.
         # Note: True local orientations are disregarded.
+        sz1 = self.shearzones_patches()
 
     def drill_boreholes(self):
         """ Fetch the borehole coordinates.
@@ -134,15 +135,17 @@ class GeologicalModel:
 
         return structures
 
-    def s1_shearzones_patches(self):
-        """ Compute linear interpolation of shear zones in set 1.
+    def shearzones_patches(self):
+        """ Compute linear interpolation of shear zones in both sets.
 
         Use data stored in attributes: 'BH_coordinates' and 'sz_tunnel' to calculate
         shear zone interpolations.
 
+        Mirrors 'S1_shearzones_patches.m' and 'S3_shearzones_patches.m' in the matlab script.
+
         """
         path = self.script_path / "01BasicInputData/06_ShearzoneInterpolation"
-        shear_zones = ['S1_1', 'S1_2', 'S1_3']  # 'S3_1', 'S3_2'
+        shear_zones = ['S1_1', 'S1_2', 'S1_3', 'S3_1', 'S3_2']  # 'S3_1', 'S3_2'
 
         sz = {}  # Dictionary for shear zone coordinates.
         """ When done, sz will have the following structure:
@@ -159,32 +162,46 @@ class GeologicalModel:
         """
 
         delimiter = '\t'
-        dtype = ['O', float]
+        dtype = ['U4', float]
         for shear_zone in shear_zones:
             fname = path / (shear_zone + '.txt')
-            result = np.genfromtxt(fname, dtype=dtype, delimiter=delimiter, names=True)
+            _result = np.genfromtxt(fname, dtype=dtype, delimiter=delimiter, names=True)
 
             # Get Borehole names and depth (in borehole) the shear zone 'file'.
-            bh = np.array([r[0] for r in result])
-            dp = np.array([r[1] for r in result])
-            sz[shear_zone] = {'Borehole': bh, 'Depth': dp}
+            _bh = np.array([r[0] for r in _result])
+            _dp = np.array([r[1] for r in _result])
+            sz[shear_zone] = {'Borehole': _bh, 'Depth': _dp}
 
             # Aliases
             bh_coords = self.BH_coordinates
 
-            bh_len = len(sz[shear_zone]['Borehole'])
             # Initialize coordinates
             xyz = ['x', 'y', 'z']
             for d in xyz:
-                sz[shear_zone][d] = np.zeros(bh_len)
+                sz[shear_zone][d] = np.zeros(len(_bh))
 
             # Calculate absolute coordinates for borehole-shearzone intersections.
-            for ii, bb in enumerate(sz[shear_zone]['Borehole']):
-                bh_name = bb[:3]  # Get the 3 letters from e.g. 'INJ1'
-                num = bb[-1]   # Get the 1-digit number from e.g.
+            for bh_idx, bh in enumerate(sz[shear_zone]['Borehole']):
+
+                # If bh doesn't intersect with the shear zone, set coords to np.nan.
+                if np.isnan(sz[shear_zone]['Depth'][bh_idx]):
+                    for d_i, d in enumerate(xyz):  # Assumes 'x, y, z' are first 3 (ordered) entries.
+                        sz[shear_zone][d][bh_idx] = np.nan
+                    continue
+
+                # Otherwise, compute the global coordinate of the shear zone.
+                bh_name = bh[:3]  # Get the 3 letters from e.g. 'INJ1'
+                num = int(bh[-1])   # Get the 1-digit number from e.g. 'INJ1'
 
                 # Fetch the borehole coordinates (and more) for a given borehole
-                borehole = bh_coords[bh_name][num]
+                _idx = num - 1  # - 1 because of 0-indexing.
+                # TODO: Fix Hard coded case for SBH3 and SBH4, whose well number
+                #   doesn't correspond with borehole index in 02_Boreholes > SBH.txt.
+                # ==============================
+                if bh == 'SBH3' or bh == 'SBH4':
+                    _idx = _idx - 1
+                # ==============================
+                borehole = bh_coords[bh_name][_idx]
                 rad = np.pi / 180
 
                 # Get coordinates ============
@@ -192,7 +209,7 @@ class GeologicalModel:
                 # Columns in borehole:
                 # x | y | z | length | diameter | azimuth | upward gradient
                 for d_i, d in enumerate(xyz):  # Assumes 'x, y, z' are first 3 (ordered) entries.
-                    sz[shear_zone][d][ii] = borehole[d_i] + \
+                    sz[shear_zone][d][bh_idx] = borehole[d_i] + \
                                             np.sin(borehole[5]*rad) * np.cos(borehole[6]*rad)
 
         # Assign tunnel intersections to Shear zones
@@ -204,11 +221,13 @@ class GeologicalModel:
             sz_id = f"S{sz_type}_{sz_num}"  # e.g. 'S1_2'
 
             sz[sz_id]['Borehole'] = np.append(sz[sz_id]['Borehole'], tunnel[5])  # Tunnel name
+            sz[sz_id]['Depth'] = np.append(sz[sz_id]['Depth'], np.nan)  # Tunnel name
 
             xyz = ['x', 'y', 'z']
             for d_i, d in enumerate(xyz):
                 sz[sz_id][d] = np.append(sz[sz_id][d], tunnel[d_i])
 
+        breakpoint()
         # BUILD PATCHES
 
 
