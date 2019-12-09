@@ -1,5 +1,6 @@
 """ This is a replicate of the geological_model_visualization.m file from"""
 from pathlib import Path
+import os
 
 import numpy as np
 
@@ -14,7 +15,12 @@ class GeologicalModel:
             Origin of coordinate system. This system will be our new origin when coordinates are imported.
 
         """
-        self.script_path = Path().absolute()
+        # Get correct path (we guess):
+        wd = Path.cwd()
+        if (wd / '01BasicInputData').is_dir():
+            self.data_path = wd / '01BasicInputData'
+        else:
+            self.data_path = wd / 'GTS/01BasicInputData'
 
         self.GTS_coordinates = np.array((667400, 158800, 1700))
 
@@ -62,7 +68,7 @@ class GeologicalModel:
 
         """
         bh_coordinates = {}
-        path = self.script_path / "01BasicInputData/02_Boreholes"
+        path = self.data_path / "02_Boreholes"
         for bh in self.BH_import:
             name = path / (bh + '.txt')
             bh_coordinates[bh] = np.genfromtxt(name)  # Default delimiter is spaces.
@@ -81,9 +87,9 @@ class GeologicalModel:
 
         """
 
-        path = self.script_path / "01BasicInputData/03_GeologicalMapping/02_BoreholeIntersections"
+        path = self.data_path / "03_GeologicalMapping/02_BoreholeIntersections"
         name = path / (bh + '_structures.txt')
-        dtype = [float, float, float, float, 'O']
+        dtype = [float, float, float, float, 'U24']
         names = ['Depth', 'Azimuth', 'Dip', 'Aperture', 'Type']
         structures = np.genfromtxt(name, dtype=dtype, names=names,
                                    delimiter='\t', skip_header=2)
@@ -121,8 +127,8 @@ class GeologicalModel:
         Mirrors 'Tunnel_intersections.m' in the matlab script.
 
         """
-        rel_path = "01BasicInputData/03_GeologicalMapping/01_TunnelIntersections/Tunnel_intersections.txt"
-        path = self.script_path / rel_path
+        rel_path = "03_GeologicalMapping/01_TunnelIntersections/Tunnel_intersections.txt"
+        path = self.data_path / rel_path
         delimiter = '\t'
         dtype = [float, float, float, float, float, 'O', int]
         names = ['x', 'y', 'z', 'dip-direction', 'dip', 'tunnel', 'shear zone set']
@@ -144,7 +150,7 @@ class GeologicalModel:
         Mirrors 'S1_shearzones_patches.m' and 'S3_shearzones_patches.m' in the matlab script.
 
         """
-        path = self.script_path / "01BasicInputData/06_ShearzoneInterpolation"
+        path = self.data_path / "06_ShearzoneInterpolation"
         shear_zones = ['S1_1', 'S1_2', 'S1_3', 'S3_1', 'S3_2']  # 'S3_1', 'S3_2'
 
         sz = {}  # Dictionary for shear zone coordinates.
