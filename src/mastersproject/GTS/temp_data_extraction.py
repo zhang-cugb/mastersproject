@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pandas as pd
 import numpy as np
 
@@ -27,7 +29,15 @@ class ShearzoneInterception:
 
 
 def get_shearzones():
-    """ The shearzone intercepts manually copied from computed results in the matlab code"""
+    """ The shearzone intercepts manually copied from computed results in the matlab code
+
+    Returns:
+        dictionary with keys S1_1, S1_2, etc. each containing:
+            pd.DataFrame:
+                Columns: Borehole, Depth, x, y, z
+                Note: x, y, z are in GTS coordinates.
+
+    """
 
     s11 = pd.DataFrame([
         ['INJ1', 34.9200000000000, 43.7896710260604, 106.944298581165, 13.5331970965852],
@@ -152,3 +162,71 @@ def get_shearzones():
           'S3_1': s31,
           'S3_2': s32}
     return sz
+
+
+### THIS METHOD FAILS BECAUSE THE POINTS IN E.G. S11_INTERP_GRID ARE NOT A LINEAR INTERPOLATION ========================
+def get_data_interp_grid():
+    """ Get the coordinates of matlab-computed linear shearzones
+
+    This method looks up the shearzones in '06_ShearzoneInterpolation'
+    and gets the files 'Sxx_interp_grid', which contains the shearzone planes
+    computed by the matlab script.
+
+    The target files are named 'S11_interp_grid', etc.
+
+    Returns:
+    dictionary
+        level 1: name of shearzone: 'S11', 'S12', 'S13', 'S31', 'S32'.
+            level 2: 'x', 'y', 'z'
+                level 3: np.ndarray of floats.
+    """
+
+    # Get path to files
+    wd = Path.cwd()
+    if (wd / '01BasicInputData').is_dir():
+        root_path = wd / '01BasicInputData' / '06_ShearzoneInterpolation'
+    else:
+        root_path = wd / 'GTS' / '01BasicInputData' / '06_ShearzoneInterpolation'
+
+    # Shearzones
+    sz_names = ['S11', 'S12', 'S13', 'S31', 'S32']
+    suffix = '_interp_grid.txt'
+    sz_interp_grid = {s:{} for s in sz_names}
+
+    for sz_name in sz_names:
+        path = root_path / (sz_name + suffix)
+        data = np.genfromtxt(path)
+        sz_interp_grid[sz_name]['x'] = data[:20].flatten(order='C')
+        sz_interp_grid[sz_name]['y'] = data[20:40].flatten(order='C')
+        sz_interp_grid[sz_name]['z'] = data[40:].flatten(order='C')
+
+    return sz_interp_grid
+
+
+import matplotlib.pyplot as plt
+def plot_points3d(*p, labels=None):
+    """ Scatter plot of arbitary many point cloud sets (1 cloud per argument).
+        ndarray.shape == (3,n_i)
+    """
+    if labels in None:
+        labels = list(range(len(p[0])))
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    t = p[0]
+    for i in range(len(t)):
+        s = t[i]
+        # print(f'hi {i} of {len(p)}')
+        ax.scatter(s[0], s[1], s[2], label=labels[i])
+    plt.legend()
+    plt.show()
+    
+def prepare_sz_for_3d_plot(sz):
+    """ Wrapper to unpack sz dicts to plot 3d"""
+    arrays = []
+    
+    keys = list(sz.keys())
+    for key in keys:
+        pts = sz[key][['x', 'y', 'z']].to_numpy().T
+        arrays.append(pts.copy())
+        
+    return arrays, keys
