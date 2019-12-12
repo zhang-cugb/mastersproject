@@ -191,7 +191,7 @@ def get_data_interp_grid():
     # Shearzones
     sz_names = ['S11', 'S12', 'S13', 'S31', 'S32']
     suffix = '_interp_grid.txt'
-    sz_interp_grid = {s:{} for s in sz_names}
+    sz_interp_grid = {s: {} for s in sz_names}
 
     for sz_name in sz_names:
         path = root_path / (sz_name + suffix)
@@ -204,6 +204,8 @@ def get_data_interp_grid():
 
 
 import matplotlib.pyplot as plt
+
+
 def plot_points3d(*p, labels=None):
     """ Scatter plot of arbitary many point cloud sets (1 cloud per argument).
         ndarray.shape == (3,n_i)
@@ -219,14 +221,19 @@ def plot_points3d(*p, labels=None):
         ax.scatter(s[0], s[1], s[2], label=labels[i])
     plt.legend()
     plt.show()
-    
-def prepare_sz_for_3d_plot(sz):
-    """ Wrapper to unpack sz dicts to plot 3d"""
+
+
+def unpack_sz(sz: dict):
+    """ Wrapper to unpack sz dicts to plot 3d.
+
+    I.e. from coordinates as columns x, y, z
+    to np.ndarray.shape == (3, n)
+    """
     arrays = []
-    
+
     keys = list(sz.keys())
     for key in keys:
         pts = sz[key][['x', 'y', 'z']].to_numpy().T
         arrays.append(pts.copy())
-        
+
     return arrays, keys
