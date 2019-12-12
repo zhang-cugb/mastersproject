@@ -1,8 +1,9 @@
 import porepy as pp
 
 from GTS.fit_plane import get_shearzone_planes, convex_hull
-
 from GTS.temp_data_extraction import ShearzoneInterception
+
+
 
 def get_fractures():
     """ Method to get fractures from the provided ISC data"""
@@ -27,23 +28,17 @@ def get_fractures_manual():
     return fracs
 
 
-def export_network(manual=False):
+def export_network(fracs, name):
     """ Export fracture network for visualization
 
     Parameters:
-        manual (bool): True if manual fractures are fetched.
+        fracs (dict): Dictionary of fracture vertices.
+        name (str): Filename of exported .vtu file.
     """
-    if manual:
-        fracs = get_fractures_manual()
-        name = 'fracture_network_manual.vtu'
-    else:
-        fracs = get_fractures()
-        name = 'fracture_network.vtu'
-
+    if name[-4:] != '.vtu':
+        name = name + '.vtu'
     fractures = [pp.Fracture(fracs[key]) for key in list(fracs.keys())]
     network = pp.FractureNetwork3d(fractures)
     network.to_vtk(name)
     return network
-
-
 
