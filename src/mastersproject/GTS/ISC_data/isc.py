@@ -13,16 +13,23 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+
 class ISCData:
 
-    def __init__(self):
-        """ Initialize the class managing data from the ISC project"""
-        self.root = Path.cwd() / 'src/mastersproject'  # should be: C:\Users\Haakon\OneDrive\Dokumenter\FORSKNING\mastersproject\src\mastersproject + \src\mastersproject
-        self.data_path = self.root / 'GTS/01BasicInputData'  # Path to available data
+    def __init__(self, path=None):
+        """ Initialize the class managing data from the ISC project
+
+        Parameters:
+            path (pathlib.Path): Path/to/01BasicInputData/
+        """
+        _root = Path('C:/Users/Haakon/OneDrive/Dokumenter/FORSKNING/mastersproject/src/mastersproject')
+        self.data_path = _root / 'GTS/01BasicInputData'  # Path to available data
+        if path is not None:
+            self.data_path = Path(path)
 
         # TEMPORARY CHECK FOR LOCAL TESTING:
-        assert(Path.cwd() == Path('C:/Users/Haakon/OneDrive/Dokumenter/FORSKNING/mastersproject'))
-        assert(self.data_path.is_dir())
+        # assert(Path.cwd() == Path('C:/Users/Haakon/OneDrive/Dokumenter/FORSKNING/mastersproject'))
+        assert (self.data_path.is_dir())
 
         self.gts_coordinates = np.array((667400, 158800, 1700))
 
@@ -151,4 +158,3 @@ class ISCData:
                 data.append(frame)
         df = pd.concat(data, ignore_index=True)
         return df
-
