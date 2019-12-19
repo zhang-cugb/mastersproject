@@ -314,9 +314,7 @@ class ISCData:
                    'upward_gradient': 'upward_gradient', 'azimuth': 'azimuth_bh'}
         self.bh_struc_to_global_coords(structures, **mapping)
 
-        # Shear-zone -- borehole data
-        shearzone_borehole = self.shearzone_borehole_data()
-        shearzone_borehole = shearzone_borehole[shearzone_borehole['depth'].notna()]
+        return structures
 
 
 def swiss_to_gts(v):
