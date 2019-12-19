@@ -237,25 +237,23 @@ class ISCData:
         and global coordinates computed.
 
         """
-        # Fetch shearzones intersecting with tunnels
-        tunnel_shearzone = self.tunnel_shearzone_data()
-        tunnel_shearzone['shearzone'] = tunnel_shearzone['shearzone'].apply(rename_sz)
+        # Characterized borehole structures
+        borehole_structures = self._characterize_shearzones()
 
-        # Fetch structures in boreholes
-        borehole_structure = self.borehole_structure_data().merge(self.borehole_data(),
-                                                                  how='outer',
-                                                                  on='borehole',
-                                                                  suffixes=('_struc', '_bh'),
-                                                                  validate='m:1')
+        # Tunnel shearzone data
+        tunnel_structures = self.tunnel_shearzone_data()
 
-        # Combine tunnel and borehole structures.
         structures = pd.concat([
             borehole_structures,
             tunnel_structures],
             ignore_index=True, sort=False)
 
         # Fill NaN-values in all columns to 0 except in column 'shearzone', for which we do nothing.
-        structures = structures.fillna(value={s: 0 for s in borehole_structure})
+        structures = structures.fillna(
+            value={
+                **{s: 0 for s in borehole_structures},
+                **{'shearzone': np.nan}
+            })
 
         mapping = {'x': 'x', 'y': 'y', 'z': 'z', 'depth': 'depth',
                    'upward_gradient': 'upward_gradient', 'azimuth': 'azimuth_bh'}
