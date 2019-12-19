@@ -160,6 +160,12 @@ class ISCData:
 
         path = file_loc / "Tunnel_intersections.txt"
         df = pd.read_csv(path, sep=None, names=columns, engine='python')
+        df['shearzone'] = df['shearzone'].apply(rename_sz)
+        df = df.rename(
+            columns={
+                'true_dip_direction': 'azimuth_struc',
+                'tunnel': 'borehole',
+            })
         return df
 
     def shearzone_borehole_data(self):
@@ -244,12 +250,8 @@ class ISCData:
 
         # Combine tunnel and borehole structures.
         structures = pd.concat([
-            borehole_structure,
-            tunnel_shearzone.rename(
-                columns={
-                    'true_dip_direction': 'azimuth_struc',
-                    'tunnel': 'borehole',
-                })],
+            borehole_structures,
+            tunnel_structures],
             ignore_index=True, sort=False)
 
         # Fill NaN-values in all columns to 0 except in column 'shearzone', for which we do nothing.
