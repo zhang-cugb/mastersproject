@@ -288,6 +288,9 @@ class ISCData:
         Geometry of all structures in boreholes and shear-zones in tunnels are located,
         and global coordinates computed.
 
+        Returns:
+            pd.DataFrame: Full data set - with all characterized structures in local coordinates.
+
         """
         # Characterized borehole structures
         borehole_structures = self._characterize_shearzones()
