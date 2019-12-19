@@ -49,6 +49,36 @@ class ISCData:
         self.shearzone_types = {'S1': np.array([1, 2, 3]),
                                 'S3': np.array([1, 2])}
 
+        # x. Step: Load all available data. ============================================================================
+        # Load borehole data
+        self.borehole_geometry = self.borehole_data()
+
+        # Load borehole structure data
+        self.borehole_structures = self.borehole_structure_data()
+
+        # Filter by shear-zone and fracture structures only
+        # self.borehole_frac_sz = self.borehole_shearzone_data()
+
+        # Load tunnel structures (only shear-zones and fractures)
+        self.tunnel_structures = self.tunnel_shearzone_data()
+
+        # Load interpolation-ready shear-zone - borehole intersections
+        # i.e. 1-1 (-0) mapping between shear-zones and boreholes.
+        self.shearzone_borehole_geometry = self.shearzone_borehole_data()
+
+        # y. Step: Calculate global coordinates for all borehole structures ============================================
+        # TODO: Also calculate global coordinates for borehole endpoints.
+
+        # TODO: Include tunnel structures in this calculation. Then make a common DataFrame in the end.
+        self.struc_intx = self.borehole_structure_data().merge(self.borehole_data(),
+                                                               how='outer',
+                                                               on='borehole',
+                                                               suffixes=('_struc', '_bh'),
+                                                               validate='m:1')
+        mapping = {'x': 'x', 'y': 'y', 'z': 'z', 'depth': 'depth',
+                   'upward_gradient': 'upward_gradient', 'azimuth': 'azimuth_bh'}
+        self.bh_struc_to_global_coords(self.struc_intx, **mapping)
+
     # def _import_data(self, folder: str, df_columns, skiprows=0):
     #     """ General method to import ISC data
     #
@@ -158,3 +188,149 @@ class ISCData:
                 data.append(frame)
         df = pd.concat(data, ignore_index=True)
         return df
+
+    @staticmethod
+    def bh_struc_to_global_coords(data: pd.DataFrame, *,
+                                  x: str, y: str, z: str, depth: str,
+                                  upward_gradient: str, azimuth: str,
+                                  ):
+        """ Convert coordinates in a borehole to global coordinates
+
+        For all rows in a DataFrame, convert some (x,y,z) coordinates to global
+        coordinates, localized to Swiss and/or GTS.
+
+        Parameters:
+        data (pd.DataFrame)
+        x, y, z, depth, upward_gradient, azimuth (str):
+            Column names for the respective quantities
+        """
+
+        # Compute angle scalers
+        rad = np.pi / 180
+        data.loc[:, '_trig_x'] = (data[upward_gradient] * rad).apply(np.cos) * \
+                                 (data[azimuth] * rad).apply(np.sin)
+
+        data.loc[:, '_trig_y'] = (data[upward_gradient] * rad).apply(np.cos) * \
+                                 (data[azimuth] * rad).apply(np.cos)
+
+        data.loc[:, '_trig_z'] = (data[upward_gradient] * rad).apply(np.sin)
+
+        # Swiss coordinates
+        data.loc[:, 'x_swiss'] = data[x] + (data[depth] * data['_trig_x'])
+        data.loc[:, 'y_swiss'] = data[y] + (data[depth] * data['_trig_y'])
+        data.loc[:, 'z_swiss'] = data[z] + (data[depth] * data['_trig_z'])
+
+        # GTS coordinates
+        data[['x_gts', 'y_gts', 'z_gts']] = data[['x_swiss', 'y_swiss', 'z_swiss']] \
+            .apply(swiss_to_gts, axis=1, raw=True, result_type='expand')
+
+    def full_structure_geometry(self):
+        """ Compute geometry of all structures in ISC.
+
+        Geometry of all structures in boreholes and shear-zones in tunnels are located,
+        and global coordinates computed.
+
+        """
+        # Fetch shearzones intersecting with tunnels
+        tunnel_shearzone = self.tunnel_shearzone_data()
+        tunnel_shearzone['shearzone'] = tunnel_shearzone['shearzone'].apply(rename_sz)
+
+        # Fetch structures in boreholes
+        borehole_structure = self.borehole_structure_data().merge(self.borehole_data(),
+                                                                  how='outer',
+                                                                  on='borehole',
+                                                                  suffixes=('_struc', '_bh'),
+                                                                  validate='m:1')
+
+        # Combine tunnel and borehole structures.
+        structures = pd.concat([
+            borehole_structure,
+            tunnel_shearzone.rename(
+                columns={
+                    'true_dip_direction': 'azimuth_struc',
+                    'tunnel': 'borehole',
+                })],
+            ignore_index=True, sort=False)
+
+        # Fill NaN-values in all columns to 0 except in column 'shearzone', for which we do nothing.
+        structures = structures.fillna(value={s: 0 for s in borehole_structure})
+
+        mapping = {'x': 'x', 'y': 'y', 'z': 'z', 'depth': 'depth',
+                   'upward_gradient': 'upward_gradient', 'azimuth': 'azimuth_bh'}
+        self.bh_struc_to_global_coords(structures, **mapping)
+
+        # Shear-zone -- borehole data
+        shearzone_borehole = self.shearzone_borehole_data()
+        shearzone_borehole = shearzone_borehole[shearzone_borehole['depth'].notna()]
+
+    def _characterize_shearzones(self):
+        """ Classify all structures as specific shear-zones (e.g. S1_1) or none
+
+        Load all borehole structures, and classify each as not a shear-zone,
+        or as Sx_y. This method combines structure-borehole data with
+        shear-zone -- borehole data.
+
+        Note:
+            - S1_2 intersects GEO3 is of type 'Minor ductile Shear-zone'
+            - One shearzone is inconsistent (to +- 0.01) across the two datasets.
+        These two notes has significantly complicated the code.
+
+        Returns:
+        pd.DataFrame: Characterized structures.
+        """
+
+        # Import shear-zone -- borehole data.
+        sz_bh = self.shearzone_borehole_data()
+        sz_bh = sz_bh[sz_bh['depth'].notna()]  # Remove rows with no intersection.
+
+        # Import borehole - structure data.
+        strc = self.borehole_structure_data().merge(self.borehole_data(), how='outer', on='borehole',
+                                                    suffixes=('_struc', '_bh'), validate='m:1')
+
+        # left merge data structures with simulation-shearzones.
+        # Notes:
+        # - Absolute tolerance = 0.01
+        # - exact match on column = 'borehole'
+        _merge = pd.merge_asof(strc.sort_values('depth'),
+                               sz_bh.sort_values('depth'),
+                               by='borehole',
+                               on='depth',
+                               tolerance=0.01,
+                               direction='nearest')
+
+        # The above merge includes some nearby 'fractures', etc.
+        # All shearzones are classified as 'S1 Shear-zone' or 'S3 Shear-zone'
+        # except once: S1_2 intersects GEO3 is of type 'Minor ductile Shear-zone'.
+        # With this set of 'type' filters, no spurious shearzone intersections are located.
+        ### Below is the complete classified shearzone set.
+        _mask_nna = _merge.shearzone.notna()
+        _mask_szset = _merge.type.isin(['S1 Shear-zone', 'S3 Shear-zone', 'Minor ductile Shear-zone'])
+        _shearzones = _merge[_mask_nna & _mask_szset]
+
+        # Step: Get indices indices of non-shearzones:
+        _index_other = set(_merge.index) - set(_shearzones.index)
+
+        # Set non-shearzones to nan
+        _merge.loc[np.array(list(_index_other)), 'shearzone'] = np.nan
+
+        return _merge
+
+
+def swiss_to_gts(v):
+    """ Convert from swiss coordinates to gts coordinates
+
+    GTS coordinates are: (x,y,z) = (667400, 158800, 1700)
+
+    Parameters:
+    v (np.array (3,)): Coordinate array
+
+    """
+    return v - np.array([667400, 158800, 1700])
+
+
+def rename_sz(sz):
+    """ Rename shearzone on form '12' to 'S1_2'. """
+    sz = str(sz)
+    sz_set = sz[0]
+    num = sz[1]
+    return f'S{sz_set}_{num}'
