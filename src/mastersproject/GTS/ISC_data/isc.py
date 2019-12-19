@@ -230,39 +230,6 @@ class ISCData:
         data[['x_gts', 'y_gts', 'z_gts']] = data[['x_swiss', 'y_swiss', 'z_swiss']] \
             .apply(swiss_to_gts, axis=1, raw=True, result_type='expand')
 
-    def full_structure_geometry(self):
-        """ Compute geometry of all structures in ISC.
-
-        Geometry of all structures in boreholes and shear-zones in tunnels are located,
-        and global coordinates computed.
-
-        """
-        # Characterized borehole structures
-        borehole_structures = self._characterize_shearzones()
-
-        # Tunnel shearzone data
-        tunnel_structures = self.tunnel_shearzone_data()
-
-        structures = pd.concat([
-            borehole_structures,
-            tunnel_structures],
-            ignore_index=True, sort=False)
-
-        # Fill NaN-values in all columns to 0 except in column 'shearzone', for which we do nothing.
-        structures = structures.fillna(
-            value={
-                **{s: 0 for s in borehole_structures},
-                **{'shearzone': np.nan}
-            })
-
-        mapping = {'x': 'x', 'y': 'y', 'z': 'z', 'depth': 'depth',
-                   'upward_gradient': 'upward_gradient', 'azimuth': 'azimuth_bh'}
-        self.bh_struc_to_global_coords(structures, **mapping)
-
-        # Shear-zone -- borehole data
-        shearzone_borehole = self.shearzone_borehole_data()
-        shearzone_borehole = shearzone_borehole[shearzone_borehole['depth'].notna()]
-
     def _characterize_shearzones(self):
         """ Classify all structures as specific shear-zones (e.g. S1_1) or none
 
@@ -314,6 +281,39 @@ class ISCData:
         _merge.loc[np.array(list(_index_other)), 'shearzone'] = np.nan
 
         return _merge
+
+    def full_structure_geometry(self):
+        """ Compute geometry of all structures in ISC.
+
+        Geometry of all structures in boreholes and shear-zones in tunnels are located,
+        and global coordinates computed.
+
+        """
+        # Characterized borehole structures
+        borehole_structures = self._characterize_shearzones()
+
+        # Tunnel shearzone data
+        tunnel_structures = self.tunnel_shearzone_data()
+
+        structures = pd.concat([
+            borehole_structures,
+            tunnel_structures],
+            ignore_index=True, sort=False)
+
+        # Fill NaN-values in all columns to 0 except in column 'shearzone', for which we do nothing.
+        structures = structures.fillna(
+            value={
+                **{s: 0 for s in borehole_structures},
+                **{'shearzone': np.nan}
+            })
+
+        mapping = {'x': 'x', 'y': 'y', 'z': 'z', 'depth': 'depth',
+                   'upward_gradient': 'upward_gradient', 'azimuth': 'azimuth_bh'}
+        self.bh_struc_to_global_coords(structures, **mapping)
+
+        # Shear-zone -- borehole data
+        shearzone_borehole = self.shearzone_borehole_data()
+        shearzone_borehole = shearzone_borehole[shearzone_borehole['depth'].notna()]
 
 
 def swiss_to_gts(v):
