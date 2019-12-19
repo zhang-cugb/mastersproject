@@ -1,3 +1,6 @@
-from .geological_model_visualization import GeologicalModel
-from .tests import GeologicalModelMethodTests
-from .fit_plane import FitPlane
+from GTS.geological_model_visualization import GeologicalModel
+from GTS.tests import GeologicalModelMethodTests
+from GTS.fit_plane import FitPlane
+
+# Import new model
+from GTS.ISC_data.isc import ISCData, swiss_to_gts
