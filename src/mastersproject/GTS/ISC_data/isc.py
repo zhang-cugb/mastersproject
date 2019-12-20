@@ -33,11 +33,8 @@ class ISCData:
 
         self.gts_coordinates = np.array((667400, 158800, 1700))
 
-        # 1. Step: Define Tunnel =======================================================================================
-        # TODO: Consider importing tunnels at a late time.
-
-        # 2. Step: Drill Borehole ======================================================================================
-        # Import all boreholes in order to use their coordinates for further calculations.
+        # TODO: For all assignments below (except 'self.structures').
+        #  Find which ones you can remove.
 
         # Name of boreholes.
         self.borehole_types = {'FBS': np.array([1, 2, 3]),
@@ -66,18 +63,8 @@ class ISCData:
         # i.e. 1-1 (-0) mapping between shear-zones and boreholes.
         self.shearzone_borehole_geometry = self.shearzone_borehole_data()
 
-        # y. Step: Calculate global coordinates for all borehole structures ============================================
-        # TODO: Also calculate global coordinates for borehole endpoints.
-
-        # TODO: Include tunnel structures in this calculation. Then make a common DataFrame in the end.
-        self.struc_intx = self.borehole_structure_data().merge(self.borehole_data(),
-                                                               how='outer',
-                                                               on='borehole',
-                                                               suffixes=('_struc', '_bh'),
-                                                               validate='m:1')
-        mapping = {'x': 'x', 'y': 'y', 'z': 'z', 'depth': 'depth',
-                   'upward_gradient': 'upward_gradient', 'azimuth': 'azimuth_bh'}
-        self.bh_struc_to_global_coords(self.struc_intx, **mapping)
+        # y. Step: All characterized structures ========================================================================
+        self.structures = self.full_structure_geometry()
 
     # def _import_data(self, folder: str, df_columns, skiprows=0):
     #     """ General method to import ISC data
@@ -315,6 +302,79 @@ class ISCData:
         self.bh_struc_to_global_coords(structures, **mapping)
 
         return structures
+
+    def get_shearzone(self, sz: str, coords: str = 'gts'):
+        """ Extract shear-zone coordinates for a given shear-zone
+
+        Coordinates extracted will either be 'swiss' or 'gts'.
+
+        Parameters:
+        sz (str): Name of shear-zone (S1_1, S1_2, S1_3, S3_1, S3_2)
+        coords (str, Default: 'gts'):
+            Get coordinates in 'gts' or 'swiss'.
+
+        Returns
+        np.ndarray (3, n): Coordinates of shearzone intersections.
+        """
+        df = self.structures
+        assert sz in ['S1_1', 'S1_2', 'S1_3', 'S3_1', 'S3_2'], f"unknown shear-zone {sz}."
+        assert coords in ['swiss', 'gts'], f"unknown coordinate system {coords}."
+        sz = df.loc[df.shearzone == sz, (f'x_{coords}', f'y_{coords}', f'z_{coords}')]
+        return sz.to_numpy().T
+
+    def structures_depth(self, borehole: str, depth: np.ndarray, structure=None, shearzone=None, coords='gts'):
+        """ Get structures in a borehole at depth
+
+        For a given borehole, and a given depth (or depth interval),
+        get all structures - or a subset of structures, or specific shearzones.
+
+        Parameters:
+        borehole (str): name of borehole (INJ1, INJ2, ...)
+        depth (np.array): Depth interval in borehole.
+        structure (str or list, Optiona): Filter by certain structures
+            (Fracture, Minor ductile Shear-zone, S1 Shear-zone, Quartz, ...)
+        shearzone (str or list, Optional): Filter by certain shear-zones
+            (S1_1, S1_2, ...)
+        coords (str, optional): which coordinate system to return
+
+        Returns:
+        pd.DataFrame: Filtered dataframe
+
+        """
+        assert (depth.shape[0] == 2) and (depth[0] <= depth[1]), "Depth must be given as an interval."
+        assert coords in ['swiss', 'gts'], f"unknown coordinate system {coords}."
+        df = self.structures
+
+        # Structure mask
+        if isinstance(structure, str):
+            structure = [structure]
+        if structure is not None:
+            _mask_struc = df.type.isin(structure)
+        else:
+            _mask_struc = np.ones(df.shape[0], dtype=bool)
+
+        # Shear-zone mask
+        if isinstance(shearzone, str):
+            shearzone = [shearzone]
+        if shearzone is not None:
+            _mask_sz = df.shearzone.isin(shearzone)
+        else:
+            _mask_sz = np.ones(df.shape[0], dtype=bool)
+
+        # Borehole mask
+        _mask_bh = df.borehole == borehole
+
+        # Depth mask
+        _mask_depth = (depth[0] <= df.depth) & (df.depth <= depth[1])
+
+        # Full mask #
+        _mask = _mask_bh & _mask_depth & _mask_struc & _mask_sz
+
+        # Filter DataFrame #
+        _bh = df.loc[_mask, ('depth', 'azimuth_struc', 'dip', 'aperture', 'type',
+                             'borehole', 'shearzone',
+                             f'x_{coords}', f'y_{coords}', f'z_{coords}')]
+        return _bh
 
 
 def swiss_to_gts(v):
