@@ -4,3 +4,6 @@ from GTS.fit_plane import FitPlane, convex_hull
 
 # Import new model
 from GTS.ISC_data.isc import ISCData, swiss_to_gts
+
+# Fractures
+from GTS.ISC_data.fracture import convex_plane, fracture_network
