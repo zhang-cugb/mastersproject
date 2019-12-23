@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
+  <UnstructuredGrid>
+    <Piece NumberOfPoints="24"                   NumberOfCells="5"                   >
+      <PointData>
+      </PointData>
+      <CellData>
+        <DataArray type="Float64" Name="Fracture_Number" format="appended" RangeMin="1"                    RangeMax="5"                    offset="0"                   />
+      </CellData>
+      <Points>
+        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="appended" RangeMin="96.055019295"         RangeMax="164.81665397"         offset="60"                  />
+      </Points>
+      <Cells>
+        <DataArray type="Int64" Name="connectivity" format="appended" RangeMin=""                     RangeMax=""                     offset="484"                 />
+        <DataArray type="Int64" Name="offsets" format="appended" RangeMin=""                     RangeMax=""                     offset="592"                 />
+        <DataArray type="UInt8" Name="types" format="appended" RangeMin=""                     RangeMax=""                     offset="648"                 />
+      </Cells>
+    </Piece>
+  </UnstructuredGrid>
+  <AppendedData encoding="base64">
+   _AQAAAACAAAAoAAAAGgAAAA==eJxjYACBD/YMEOAAoTigtACUFnEAADZ/Alw=AQAAAACAAAAgAQAAKwEAAA==eJwBIAHf/nqtF0E6oLFCz1wNQk9PkkK5wvhCH2UGQh+2X0IQqN1C+rs1QZtMTEImmNdCMT0aQQLpLUE8Zb9CNqQJQlX0lkKwwwVDdwMJQp6UV0JR8+RCbIEJQbqwQUKS59tC78lhQDcmk0H74tdCXUcLQk9zlkISsQ5DpVYHQuicT0J4BuxCakSjQEHEOEL9GeJCmrCLPyxHGkI3W95CsU4QQSA1R0KbPMhCvU7dQAwKkEIlFtRCygYEQj8VX0IF9dlC3tkNQkDfskGaeeFCLxEHQhEvx0FxjulCJ+cIQqUQV0K6V+FCN7gNQggnkEKxptpC23EHQn8qZkKYMdNCQCFwQUW7WEI7dtJCOWRDQffRU0LT49JCKo5EQYVbN0KogdZCrOVnQSs7dew=AQAAAACAAADoAAAAPgAAAA==eJxdy7cBwEAQArB3zjntv6kLq/HRqABS+pIxZ5H+KVmxZhP6lh17DhzDbuLMhWvoN+48ePLizSf8XmNYAT8=AQAAAACAAAAoAAAAFgAAAA==eJxjZYAALigtAKVFobQslAYABegAUg==AQAAAACAAAAFAAAACwAAAA==eJxjZwcCAABuACQ=
+  </AppendedData>
+</VTKFile>
