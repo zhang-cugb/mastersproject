@@ -38,7 +38,7 @@ class PrototypeNetwork:
         self.name = 'prototype'
 
     @staticmethod
-    def read_data():
+    def read_data(path=None):
         """ The data below was manually picked from the Matlab visualization.
 
             Only for prototyping.
@@ -48,7 +48,8 @@ class PrototypeNetwork:
             i.e. rows = x, y, z
                 columns = different coordinates
             """
-        path = Path.cwd() / 'GTS/ISC_SZ_manual_picking.txt'
+        if path is None:
+            path = Path.cwd() / 'GTS/ISC_SZ_manual_picking.txt'
         skip = lambda x: x in range(13)
         df = pd.read_csv(path, sep='\s+', skiprows=skip)
 
@@ -99,9 +100,9 @@ class PrototypeNetwork:
         return network
 
     @classmethod
-    def make_network(cls, domain: dict = None):
+    def make_network(cls, domain: dict = None, path=None):
         """ Import data and make network"""
-        data = cls.read_data()
+        data = cls.read_data(path=path)
         sz_vertices = cls.get_convex_hulls(data)
         network = cls.fracture_network(sz_vertices, domain=domain)
         return network
@@ -121,9 +122,18 @@ class PrototypeNetwork:
 
         Returns:
             pp.GridBucket: Mixed-dimensional mesh
+
+        Example:
+            domain = {'xmin':-6, 'xmax':80, 'ymin': 55, 'ymax': 150, 'zmin':0, 'zmax':50}
+            mesh_args = {'mesh_size_frac': 10, 'mesh_size_min':10}
+            gb = PrototypeNetwork.make_mesh(mesh_args, domain)
         """
-        network = cls.make_network(domain)
-        gb = network.mesh(mesh_args, **mesh_kwargs)
+        root = Path(r'C:\Users\Haakon\OneDrive\Dokumenter\FORSKNING\mastersproject\src\mastersproject\GTS')
+        path = root / 'ISC_SZ_manual_picking.txt'
+        network = cls.make_network(domain, path=path)
+        root_gmsh = Path('C:\\Users\\Haakon\\OneDrive\\Dokumenter\\FORSKNING\\mastersproject\\src\\mastersproject\\')
+        gmsh_path = str(root_gmsh / 'gmsh_frac_file')  # TEMPORARY: Resolve python "bug".
+        gb = network.mesh(mesh_args, file_name=gmsh_path, **mesh_kwargs)
         return gb
 
 
