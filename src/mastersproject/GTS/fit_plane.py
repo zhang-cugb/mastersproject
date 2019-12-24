@@ -1,3 +1,24 @@
+"""
+Methods for fitting a plane to a point cloud.
+Public methods:
+plane_from_points(points: np.ndarray) -> np.ndarray:
+    - For an arbitrary point cloud of n points in 3D space (3,n)
+        fit a plane to these points by computing the least squares fit
+        with respect to the best conditioned spatial direction.
+        Uses _fit_normal_to_points to compute the plane of best fit.
+convex_hull(p: np.ndarray) -> np.ndarray:
+    - For a point cloud of n points in 3D space (3,n) constrained to
+        an arbitrarily oriented 2D plane, compute the 2D convex hull
+        of the point cloud. The computed points naturally forms a
+        subset of the original point set, ordered counter-clockwise.
+
+Private methods:
+_fit_normal_to_points(points: np.ndarray) -> np.array:
+    - Compute the plane of best fit to an arbitrary point cloud in
+        3D space. Returns the normalized normal to the computed plane.
+        See the public method documentation for additional details.
+"""
+
 import numpy as np
 from scipy.spatial import ConvexHull
 import porepy as pp
@@ -47,16 +68,6 @@ def convex_hull(p: np.ndarray) -> np.ndarray:
     vertices = np.add(vertices.T, mean).T
 
     return vertices
-
-
-""" 
-The two methods below
-    - _fit_normal_to_points
-    - plane_from_points
-constitute the new (23.11.2019) way of computing plane of best fit.
-Public usage through plane_from_points.
-
-"""
 
 
 def _fit_normal_to_points(points: np.ndarray) -> np.array:

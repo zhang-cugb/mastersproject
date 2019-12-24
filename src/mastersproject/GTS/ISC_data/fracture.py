@@ -1,5 +1,12 @@
 """
+Methods for assembling fractures from isc data and construct a discrete fracture network.
 
+Public methods:
+convex_plane(shearzone_names, coord_system='gts', path=None) -> pd.DataFrame:
+    - Wrapper to construct convex hulls for the different shear-zones in isc.
+        Gets data by calling gts.ISCData() directly.
+fracture_network(shearzone_names, export: bool = False, path=None, **network_kwargs) -> pp.FractureNetwork3d:
+    - Construct a 3D fracture network from the isc data.
 
 """
 
@@ -11,7 +18,7 @@ import porepy as pp
 import GTS as gts
 
 
-def convex_plane(shearzone_names, coord_system='gts', path=None):
+def convex_plane(shearzone_names, coord_system='gts', path=None) -> pd.DataFrame:
     """ Compute vertices for the convex polygon of the projected point cloud
     to the plane of best fit for each shear-zone is shearzone_names.
 
@@ -54,7 +61,7 @@ def convex_plane(shearzone_names, coord_system='gts', path=None):
     return df
 
 
-def fracture_network(shearzone_names, export: bool = False, path=None, **network_kwargs):
+def fracture_network(shearzone_names, export: bool = False, path=None, **network_kwargs) -> pp.FractureNetwork3d:
     """ Make a fracture network from a selection of shear-zones.
 
     Parameters:
