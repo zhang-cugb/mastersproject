@@ -1,8 +1,8 @@
 import porepy as pp
 
-from GTS.fit_plane import get_shearzone_planes, convex_hull
-from GTS.temp_data_extraction import ShearzoneInterception
-
+from GTS.fit_plane import convex_hull
+from GTS.deprecated_files.old_fit_plane import get_shearzone_planes
+from GTS.deprecated_files.temp_data_extraction import ShearzoneInterception
 
 
 def get_fractures():

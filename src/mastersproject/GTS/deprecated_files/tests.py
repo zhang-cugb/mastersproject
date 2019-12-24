@@ -1,8 +1,9 @@
 import numpy as np
 import porepy as pp
 
-from GTS.geological_model_visualization import GeologicalModel
-from GTS.fit_plane import FitPlane, convex_hull
+from GTS.deprecated_files.geological_model_visualization import GeologicalModel
+from GTS.fit_plane import convex_hull
+from GTS.deprecated_files.old_fit_plane import FitPlane
 
 
 class GeologicalModelMethodTests:

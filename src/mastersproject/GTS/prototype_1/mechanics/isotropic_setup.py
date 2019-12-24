@@ -7,12 +7,10 @@ One of the fractures contains an injection well.
 """
 
 import numpy as np
-import scipy.sparse as sps
-from scipy.spatial.distance import cdist
 import porepy as pp
 from porepy.models.contact_mechanics_model import ContactMechanics
 
-from GTS.prototype_fracture_network import PrototypeNetwork
+from GTS.deprecated_files.prototype_fracture_network import PrototypeNetwork
 
 
 class IsotropicSetup(ContactMechanics):

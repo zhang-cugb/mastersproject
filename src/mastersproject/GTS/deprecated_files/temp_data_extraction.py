@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 
-from GTS.fit_plane import FitPlane
+from GTS.deprecated_files.old_fit_plane import FitPlane
 
 
 class ShearzoneInterception:
