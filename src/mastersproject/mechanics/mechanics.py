@@ -2,6 +2,7 @@ import porepy as pp
 import numpy as np
 from porepy.models.contact_mechanics_model import ContactMechanics
 
+
 class ContactMechanicsEx(ContactMechanics):
     """ Implementation of ContactMechanics with a workable example"""
 
