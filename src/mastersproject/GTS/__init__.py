@@ -7,7 +7,6 @@ from GTS.ISC_data.isc import ISCData, swiss_to_gts
 
 # Import fracture tools
 from GTS.ISC_data.fracture import convex_plane, fracture_network
-from GTS.ISC_data.fracture import convex_plane2, fracture_network2  # Test method
 
 # Plane fit tools
 from GTS.fit_plane import FitPlane  # Old buggy method
