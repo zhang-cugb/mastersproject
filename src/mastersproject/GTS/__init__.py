@@ -2,7 +2,7 @@ from GTS.deprecated_files.geological_model_visualization import GeologicalModel
 from GTS.deprecated_files.tests import GeologicalModelMethodTests
 
 
-# Import new model
+# Import new model data
 from GTS.ISC_data.isc import ISCData, swiss_to_gts
 
 # Import fracture tools
@@ -13,3 +13,7 @@ from GTS.fit_plane import plane_from_points  # New, improved method
 
 from GTS.fit_plane import convex_hull  # Construct the convex hull
 
+# Problem setup and solver classes
+from GTS.isc_modelling.mechanics import ContactMechanicsISC
+from GTS.isc_modelling.mechanics import ContactMechanicsIsotropicISC
+from GTS.isc_modelling.mechanics import run_model
