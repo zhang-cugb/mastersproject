@@ -16,4 +16,7 @@ from GTS.fit_plane import convex_hull  # Construct the convex hull
 # Problem setup and solver classes
 from GTS.isc_modelling.mechanics import ContactMechanicsISC
 from GTS.isc_modelling.mechanics import ContactMechanicsIsotropicISC
-from GTS.isc_modelling.mechanics import run_model
+from GTS.isc_modelling.mechanics import run_model as run_model_mechanics
+# Contact Mechanics Biot
+from GTS.isc_modelling.contact_mechanics_biot import run_model as run_model_cm_biot
+from GTS.isc_modelling.contact_mechanics_biot import ContactMechanicsBiotISC
