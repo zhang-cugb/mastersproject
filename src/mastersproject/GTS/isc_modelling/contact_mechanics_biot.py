@@ -1,3 +1,6 @@
+import os
+import logging
+
 import porepy as pp
 import numpy as np
 import scipy.sparse as sps
@@ -9,14 +12,42 @@ import GTS as gts
 class ContactMechanicsBiotISC(ContactMechanicsBiot):
 
     def __init__(self, params=None, **kwargs):
-        """ Initialize the Contact Mechanics Biot"""
+        """ Initialize the Contact Mechanics Biot
+
+        Parameters
+        params : dict : Optional
+            folder_name : str
+                name of storage folder, relative to root.
+            root : str
+                root to folder name (path must exist)
+        kwargs
+            time_step : float
+                size of a time step (post-scaled to self.length_scale ** 2)
+            num_steps : int : Default = 2
+                Total number of time steps
+        """
+        self.name = "contact mechanics biot on ISC dataset"
+        logging.info(f"Running: {self.name}")
+
+        # Specify absolute visualization storage path
+        if params is None:
+            pass
+        assert isinstance(params, dict), "Params should be a dictionary."
+        params = {}
+        _root = "/home/haakon/mastersproject/src/mastersproject/GTS/isc_modelling/results/"
+        root = params.get("root", _root)
+        assert(os.path.isdir(root))  # Root must be an existing path
+        path = root + params.get("folder_name", "biot_contact_mechanics_viz")
+        params["folder_name"] = path
+        logging.info(f"Visualization folder path: {path}")
+
         super().__init__(params)
         self.viz = None
 
         # Time
-        self.time_step = 1 * self.length_scale ** 2
-        self.end_time = self.time_step * 10
-        num_steps = self.end_time / self.time_step + 1
+        num_steps = kwargs.get("num_steps", 2)
+        self.time_step = kwargs.get("time_step", 1) * self.length_scale ** 2
+        self.end_time = self.time_step * (num_steps - 1)
         self.time_steps_array = np.linspace(start=0, stop=self.end_time, num=num_steps)
         self.step_count = np.arange(len(self.time_steps_array))
         self.current_step = self.step_count[0]
@@ -66,7 +97,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
 
     def bc_values_mechanics(self, g):
         # TODO: Customer mechanics boundary conditions (values).
-        return super().bc_values_mechanics()
+        return super().bc_values_mechanics(g)
 
     def bc_values_scalar(self, g):
         """ Set boundary values to 1 (Neumann) on top face.
@@ -155,7 +186,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
             mg = d["mortar_grid"]
             pp.initialize_data(mg, d, self.mechanics_parameter_key)
 
-    def init_viz(self, overwrite=False):
+    def init_viz(self, file_name="test_biot", overwrite=False):
         """ Initialize visualization.
         Will only create a new object if none exists.
         Alternatively, the existing exporter can be overwritten using 'overwrite'.
@@ -163,7 +194,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         """
         if (self.viz is None) or overwrite:
             # g3 = self.gb.grids_of_dimension(self.gb.dim_max())[0]
-            self.viz = pp.Exporter(self.gb, name="test_biot", folder=self.viz_folder_name)
+            self.viz = pp.Exporter(self.gb, name=file_name, folder=self.viz_folder_name)
 
     def export_step(self):
         """ Implementation of export step"""
@@ -182,7 +213,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
 
 
 def run_model(model: ContactMechanicsBiotISC = None,
-              viz_folder_name='GTS/isc_modelling/results/biot'):
+              viz_folder_name='biot'):
     """ Set up and run the biot model.
 
     Parameters
@@ -191,9 +222,9 @@ def run_model(model: ContactMechanicsBiotISC = None,
     viz_folder_name : str
         Path to storage folder.
     """
-    params = {'folder_name': viz_folder_name}
     if model is None:
-        model = ContactMechanicsBiotISC()
+        params = {'folder_name': viz_folder_name}
+        model = ContactMechanicsBiotISC(params=params)
     model.prepare_simulation()
     model.init_viz(overwrite=True)  # Overwrite the viz created in pp.contact_mechanics_biot at prepare_simulation()
     time_steps = model.time_steps_array
