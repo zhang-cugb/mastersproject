@@ -10,6 +10,7 @@ fracture_network(shearzone_names, export: bool = False, path=None, **network_kwa
 
 """
 
+import logging
 from pathlib import Path
 
 import pandas as pd
@@ -49,6 +50,7 @@ def convex_plane(shearzone_names, coord_system='gts', path=None) -> pd.DataFrame
 
     results = []
     for sz in shearzone_names:
+        logging.info(f"Interpolating shearzone {sz} ...")
         point_cloud = isc.get_shearzone(sz=sz, coords=coord_system)
         proj = gts.plane_from_points(point_cloud)  # projection
 
@@ -113,5 +115,6 @@ def fracture_network(shearzone_names, export: bool = False, path=None, **network
         if name[-4:] != '.vtu':
             name = name + '.vtu'
         network.to_vtk(name)
+        logging.info("Saving vtk file of fracture network in 3D.")
 
     return network

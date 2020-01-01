@@ -19,6 +19,8 @@ _fit_normal_to_points(points: np.ndarray) -> np.array:
         See the public method documentation for additional details.
 """
 
+import logging
+
 import numpy as np
 from scipy.spatial import ConvexHull
 import porepy as pp
@@ -149,6 +151,6 @@ def plane_from_points(points: np.ndarray) -> np.ndarray:
     error = np.sqrt(((proj - points.T) ** 2).sum(axis=1))
     length = np.sqrt(((points.T) ** 2).sum(axis=1))
     rel_error = error / length
-    print(f"Sum of pointwise relative errors: {rel_error.sum():.4f}")
+    logging.info(f"Sum of pointwise relative errors: {rel_error.sum():.4f}")
 
     return proj.T
