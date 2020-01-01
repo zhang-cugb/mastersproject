@@ -19,6 +19,7 @@ import porepy as pp
 import GTS as gts
 
 
+# TODO: Move convex_plane to the isc class.
 def convex_plane(shearzone_names, coord_system='gts', path=None) -> pd.DataFrame:
     """ Compute vertices for the convex polygon of the projected point cloud
     to the plane of best fit for each shear-zone is shearzone_names.
@@ -45,7 +46,7 @@ def convex_plane(shearzone_names, coord_system='gts', path=None) -> pd.DataFrame
     if isinstance(shearzone_names, str):
         shearzone_names = [shearzone_names]
     elif shearzone_names is None:
-        shearzone_names = ['S1_1', 'S1_2', 'S1_3', 'S3_1', 'S3_2']
+        shearzone_names = isc.shearzones
     assert (isinstance(shearzone_names, list))
 
     results = []
