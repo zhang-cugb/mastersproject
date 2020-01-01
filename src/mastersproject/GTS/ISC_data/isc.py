@@ -9,6 +9,7 @@ link: https://doi.org/10.3929/ethz-b-000243199
 
 """
 from pathlib import Path
+import logging
 
 import numpy as np
 import pandas as pd
@@ -39,6 +40,7 @@ class ISCData:
 
         # TEMPORARY CHECK FOR LOCAL TESTING:
         # assert(Path.cwd() == Path('C:/Users/Haakon/OneDrive/Dokumenter/FORSKNING/mastersproject'))
+        logging.info(f"Data located at: {self.data_path}.")
         assert (self.data_path.is_dir())
 
         self.gts_coordinates = np.array((667400, 158800, 1700))
