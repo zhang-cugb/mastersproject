@@ -20,11 +20,21 @@ class ISCData:
         """ Initialize the class managing data from the ISC project
 
         Parameters:
-            path (pathlib.Path): Path/to/01BasicInputData/
+            path : str, pathlib.Path
+                Path/to/01BasicInputData/
+                or 'windows' or 'linux' for default values.
+                If None, 'linux' by default.
+
         """
-        _root = Path('C:/Users/Haakon/OneDrive/Dokumenter/FORSKNING/mastersproject/src/mastersproject')
-        self.data_path = _root / 'GTS/01BasicInputData'  # Path to available data
-        if path is not None:
+        if path is None:
+            path = 'linux'
+        if path == 'linux':
+            _root = Path.cwd()  # should be path/to/mastersproject/src/mastersproject
+            self.data_path = _root / 'GTS/01BasicInputData'
+        elif path == 'windows':
+            _root = Path('C:/Users/Haakon/OneDrive/Dokumenter/FORSKNING/mastersproject/src/mastersproject')
+            self.data_path = _root / 'GTS/01BasicInputData'
+        else:
             self.data_path = Path(path)
 
         # TEMPORARY CHECK FOR LOCAL TESTING:
