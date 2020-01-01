@@ -55,7 +55,9 @@ class ISCData:
         # Name of shearzones
         self.shearzone_types = {'S1': np.array([1, 2, 3]),
                                 'S3': np.array([1, 2])}
-
+        self.shearzones = [sz_set+'_'+str(sz_num) for sz_set in self.shearzone_types
+                           for sz_num in self.shearzone_types[sz_set]]
+        
         # x. Step: Load all available data. ============================================================================
         # Load borehole data
         self.borehole_geometry = self.borehole_data()
