@@ -6,9 +6,9 @@ class test_isc_data_import:
         self.cls = ISCData()
 
     def test_import_borehole_data(self):
-        """ Test the method 'cls.borehole_data(self)'.
+        """ Test the method 'cls._borehole_data(self)'.
 
         """
         cls = self.cls
-        df = cls.borehole_data()
+        df = cls._borehole_data()
         # assert(df[])

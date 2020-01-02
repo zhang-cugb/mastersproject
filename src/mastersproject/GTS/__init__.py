@@ -5,6 +5,9 @@ from GTS.deprecated_files.tests import GeologicalModelMethodTests
 # Import new model data
 from GTS.ISC_data.isc import ISCData, swiss_to_gts
 
+# Transformations
+from GTS.ISC_data.isc import borehole_to_global_coords
+
 # Import fracture tools
 from GTS.ISC_data.fracture import convex_plane, fracture_network
 
