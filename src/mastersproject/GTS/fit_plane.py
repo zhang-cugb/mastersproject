@@ -5,7 +5,7 @@ plane_from_points(points: np.ndarray) -> np.ndarray:
     - For an arbitrary point cloud of n points in 3D space (3,n)
         fit a plane to these points by computing the least squares fit
         with respect to the best conditioned spatial direction.
-        Uses _fit_normal_to_points to compute the plane of best fit.
+        Uses fit_normal_to_points to compute the plane of best fit.
 convex_hull(p: np.ndarray) -> np.ndarray:
     - For a point cloud of n points in 3D space (3,n) constrained to
         an arbitrarily oriented 2D plane, compute the 2D convex hull
@@ -13,7 +13,7 @@ convex_hull(p: np.ndarray) -> np.ndarray:
         subset of the original point set, ordered counter-clockwise.
 
 Private methods:
-_fit_normal_to_points(points: np.ndarray) -> np.array:
+fit_normal_to_points(points: np.ndarray) -> np.array:
     - Compute the plane of best fit to an arbitrary point cloud in
         3D space. Returns the normalized normal to the computed plane.
         See the public method documentation for additional details.
@@ -72,7 +72,7 @@ def convex_hull(p: np.ndarray) -> np.ndarray:
     return vertices
 
 
-def _fit_normal_to_points(points: np.ndarray) -> np.array:
+def fit_normal_to_points(points: np.ndarray) -> np.array:
     """ Compute a normal from a collection of points.
 
     Source: http://www.ilikebigbits.com/2015_03_04_plane_from_points.html
@@ -142,7 +142,7 @@ def plane_from_points(points: np.ndarray) -> np.ndarray:
     N = points.shape[1]
     centroid = np.sum(points, axis=1) / N
     pointsR = (points.T - centroid).T
-    normal = _fit_normal_to_points(pointsR)
+    normal = fit_normal_to_points(pointsR)
     assert (np.isclose(np.sqrt((normal ** 2).sum()), 1))  # Assert normalized
 
     proj = centroid + pointsR.T - np.outer(np.dot(pointsR.T, normal), normal)

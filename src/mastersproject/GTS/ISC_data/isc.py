@@ -14,6 +14,8 @@ import logging
 import numpy as np
 import pandas as pd
 
+import GTS as gts
+
 
 class ISCData:
 
@@ -101,7 +103,8 @@ class ISCData:
         sz = df.loc[df.shearzone == sz, (f'x_{coords}', f'y_{coords}', f'z_{coords}')]
         return sz.to_numpy().T
 
-    def structures_depth(self, borehole: str, depth: np.ndarray, structure=None, shearzone=None, coords='gts'):
+    def structures_depth(self, borehole: str, depth: np.ndarray,
+                         structure=None, shearzone=None, coords='gts'):
         """ Get structures in a borehole at depth
 
         For a given borehole, and a given depth (or depth interval),
@@ -154,6 +157,96 @@ class ISCData:
                              'borehole', 'shearzone',
                              f'x_{coords}', f'y_{coords}', f'z_{coords}')]
         return _bh
+
+    def borehole_plane_intersection(self):
+        """ Compute new intersections of boreholes and shear-zones.
+
+        There will be new intersections due to regression over old
+        intersections to produce shear-zone planes.
+
+        Returns
+        df : pd.DataFrame
+            DataFrame of shear-zone -- borehole intersections.
+            Only intersections found in self.shearzone_borehole_geometry are considered.
+            Each row represents an intersection and contains the following data:
+                * plane normal and centroid.
+                * Original depth of intersection ('old_depth')
+                * borehole root coordinates and direction vector
+                * depth of intersection ('depth')
+                * gts coordinates of intersection ('x_sz', 'y_sz', 'z_sz')
+
+        """
+
+        # 1. Step: Compute direction vectors to each borehole ==========================================================
+        borehole_data = self.borehole_geometry.copy()
+        borehole_data['depth'] = 0
+        borehole_to_global_coords(data=borehole_data,
+                                  x='x', y='y', z='z',
+                                  depth='depth',
+                                  upward_gradient='upward_gradient',
+                                  azimuth='azimuth')
+
+        # Extract relevant columns from borehole data
+        _mask = ['borehole', 'x_gts', 'y_gts', 'z_gts', '_trig_x', '_trig_y', '_trig_z']
+        bh_data = borehole_data[_mask]
+
+        mapper = {'x_gts': 'x_bh', 'y_gts': 'y_bh', 'z_gts': 'z_bh',
+                  '_trig_x': 'r_x', '_trig_y': 'r_y', '_trig_z': 'r_z'}
+        bh_data = bh_data.rename(columns=mapper)
+
+        # 2. Step: Calculate shear-zone unit normals and centroids =====================================================
+        sz = self.planes()
+
+        # 3. Step: Extract shear-zone borehole geometry ================================================================
+        # i.e. only the shear-zones used for computing shear-zone planes.
+        sz_bh = self.shearzone_borehole_geometry.copy()
+        sz_bh = sz_bh[sz_bh.depth.notna()]
+        sz_bh = sz_bh.rename(columns={'depth': 'old_depth'})
+
+        # 4. Step: Merge the collected data ============================================================================
+        df = sz.merge(sz_bh, on='shearzone').merge(bh_data, on='borehole')
+
+        # 5. Step: Calculate new shear-zone borehole intersections. ====================================================
+        # Quantities
+        n_vec = ['n_x', 'n_y', 'n_z']
+        r_vec = ['r_x', 'r_y', 'r_z']
+        bh_coords = ['x_bh', 'y_bh', 'z_bh']
+        sz_coords = ['x_c', 'y_c', 'z_c']
+
+        # Depth calculation
+        df['depth'] = ((df[sz_coords].values - df[bh_coords].values) * df[n_vec].values).sum(axis=1) \
+                      / (df[n_vec].values * df[r_vec].values).sum(axis=1)
+
+        # Calculate global coordinates
+        df.loc[:, 'x_sz'] = df.x_bh + (df.depth * df.r_x)
+        df.loc[:, 'y_sz'] = df.y_bh + (df.depth * df.r_y)
+        df.loc[:, 'z_sz'] = df.z_bh + (df.depth * df.r_z)
+
+        return df
+
+    def planes(self):
+        """ Compute plane of best fit from point cloud of each shear-zone.
+
+        Returns
+        df : pd.DataFrame
+            Normal vector and centroid of each shear-zone.
+        """
+
+        results = []
+        for sz in self.shearzones:
+            point_cloud = self.get_shearzone(sz=sz, coords='gts')
+            n_pts = point_cloud.shape[1]
+            centroid = np.sum(point_cloud, axis=1) / n_pts
+            normal = gts.fit_normal_to_points(point_cloud)
+
+            data = np.atleast_2d(np.hstack((centroid, normal)))
+            columns = ('x_c', 'y_c', 'z_c', 'n_x', 'n_y', 'n_z')
+            frame = pd.DataFrame(data=data, columns=columns)
+            frame['shearzone'] = sz
+            results.append(frame)
+
+        df = pd.concat(results, ignore_index=True)
+        return df
 
     # ======= PRIVATE CLASS UTILITY METHODS ============================================================================
 

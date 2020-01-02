@@ -13,7 +13,7 @@ from GTS.ISC_data.fracture import convex_plane, fracture_network
 
 # Plane fit tools
 from GTS.fit_plane import plane_from_points  # New, improved method
-from GTS.fit_plane import _fit_normal_to_points  # Temporary for prototype testing
+from GTS.fit_plane import fit_normal_to_points  # Temporary for prototype testing
 
 from GTS.fit_plane import convex_hull  # Construct the convex hull
 
