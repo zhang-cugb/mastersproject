@@ -26,6 +26,8 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
                 size of a time step (post-scaled to self.length_scale ** 2)
             num_steps : int : Default = 2
                 Total number of time steps
+            data_path : str
+                path to isc_data: path/to/GTS/01BasicInputData
         """
         self.name = "contact mechanics biot on ISC dataset"
         logging.info(f"Running: {self.name}")
@@ -57,6 +59,11 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.gb = None
         self.Nd = None
 
+        # Boundary conditions, initial conditions, source conditions:
+        # Scalar source
+        self.source_scalar_borehole_shearzone = {'shearzone': 'S1_1', 'borehole': 'INJ1'}
+
+
         # Fractures are created in the order of self.shearzone_names.
         # This is effectively an index of the shearzone at hand.
         default_shearzone_set = ['S1_1', 'S1_2', 'S1_3', 'S3_1', 'S3_2']
@@ -69,6 +76,9 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         # Bounding box of the domain
         default_box = {'xmin': -6, 'xmax': 80, 'ymin': 55, 'ymax': 150, 'zmin': 0, 'zmax': 50}
         self.box = kwargs.get('box', default_box)
+
+        # TODO: Think of a good way to include ISCData in this class
+        self.isc = gts.ISCData(path=kwargs.get('data_path', 'linux'))
 
     def create_grid(self, overwrite_grid=False):
         """ Create a GridBucket of a 3D domain with fractures
@@ -115,7 +125,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
             # We require that 2D grids have a name.
             g = self.gb.get_grids(lambda g: g.dim == 2)
             for i, sz in enumerate(self.shearzone_names):
-                assert(self.gb._nodes[g[i]].get('name', None) is not None)
+                assert(self.gb.node_props(g[i], 'name') is not None)
 
     def bc_type_mechanics(self, g):
         # TODO: Custom mechanics boundary conditions (type).
@@ -147,6 +157,48 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         bottom_face = np.nonzero(bottom)[0]
         # Define boundary condition on faces
         return pp.BoundaryCondition(g, bottom_face, "dir")
+
+    def source_scalar(self, g: pp.Grid):
+        """ Well-bore source
+
+        This is an example implementation of a borehole-fracture source.
+        """
+        # Borehole-shearzone intersection of interest
+        bh_sz = self.source_scalar_borehole_shearzone
+
+        # Get name of grid
+        grid_name = self.gb.node_props(g, 'name')
+
+        # 0-values for all non-2D grids
+        if grid_name is None:
+            return np.zeros(g.num_cells)
+
+        # Also 0-values for all 2D-grids except the 'S1_1' shear-zone.
+        if grid_name != bh_sz['shearzone']:
+            return np.zeros(g.num_cells)
+
+        logging.info(f"Grid of name: {grid_name}, and dimension {g.dim}")
+        logging.info(f"Setting non-zero source for scalar variable")
+
+        # Get necessary data
+        df = self.isc.borehole_plane_intersection()
+
+        _mask = (df.shearzone == bh_sz['shearzone']) & (df.borehole == bh_sz['borehole'])
+        result = df.loc[_mask, ('x_sz', 'y_sz', 'z_sz')]
+        if result.empty:
+            raise ValueError("No intersection found.")
+
+        pts = result.to_numpy().T
+        assert (pts.shape[1] == 1), "Should only be one intersection"
+
+        # Find cell nearest the desired point.
+        ids, dsts = g.closest_cell(pts, return_distance=True)
+        logging.info(f"Closest cell found has distance: {dsts[0]:4f}")
+
+        # Set the source term.
+        values = np.zeros(g.num_cells)
+        values[ids] = 10
+        return values
 
     def set_mu(self, g):
         """ Set mu
