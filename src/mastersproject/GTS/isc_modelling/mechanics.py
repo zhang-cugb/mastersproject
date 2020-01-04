@@ -16,12 +16,19 @@ class ContactMechanicsISC(ContactMechanics):
         super().__init__()
 
         # Mesh size arguments
-        default_mesh_args = {'mesh_size_frac': 10, 'mesh_size_min': 10}
-        self.mesh_args = kwargs.get('mesh_args', default_mesh_args)
+        default_mesh_args = {"mesh_size_frac": 10, "mesh_size_min": 10}
+        self.mesh_args = kwargs.get("mesh_args", default_mesh_args)
 
         # Bounding box of the domain
-        default_box = {'xmin': -6, 'xmax': 80, 'ymin': 55, 'ymax': 150, 'zmin': 0, 'zmax': 50}
-        self.box = kwargs.get('box', default_box)
+        default_box = {
+            "xmin": -6,
+            "xmax": 80,
+            "ymin": 55,
+            "ymax": 150,
+            "zmin": 0,
+            "zmax": 50,
+        }
+        self.box = kwargs.get("box", default_box)
 
     def create_grid(self):
         """ Create a GridBucket of a 3D domain with fractures
@@ -38,25 +45,33 @@ class ContactMechanicsISC(ContactMechanics):
                 grid bucket.
 
         """
-        network = gts.fracture_network(shearzone_names=None, export=True, path='linux', domain=self.box)
+        network = gts.fracture_network(
+            shearzone_names=None, export=True, path="linux", domain=self.box
+        )
         self.gb = network.mesh(mesh_args=self.mesh_args)
         pp.contact_conditions.set_projections(self.gb)
         self.Nd = self.gb.dim_max()
 
 
 class ContactMechanicsIsotropicISC(IsotropicSetup):
-
     def __init__(self, **kwargs):
         """ Initialize the mechanics class for an ISC geometry."""
         super().__init__()
 
         # Mesh size arguments
-        default_mesh_args = {'mesh_size_frac': 10, 'mesh_size_min': 10}
-        self.mesh_args = kwargs.get('mesh_args', default_mesh_args)
+        default_mesh_args = {"mesh_size_frac": 10, "mesh_size_min": 10}
+        self.mesh_args = kwargs.get("mesh_args", default_mesh_args)
 
         # Bounding box of the domain
-        default_box = {'xmin': -6, 'xmax': 80, 'ymin': 55, 'ymax': 150, 'zmin': 0, 'zmax': 50}
-        self.box = kwargs.get('box', default_box)
+        default_box = {
+            "xmin": -6,
+            "xmax": 80,
+            "ymin": 55,
+            "ymax": 150,
+            "zmin": 0,
+            "zmax": 50,
+        }
+        self.box = kwargs.get("box", default_box)
 
     def create_grid(self):
         """ Create a GridBucket of a 3D domain with fractures
@@ -73,7 +88,9 @@ class ContactMechanicsIsotropicISC(IsotropicSetup):
                 grid bucket.
 
         """
-        network = gts.fracture_network(shearzone_names=None, export=True, path='linux', domain=self.box)
+        network = gts.fracture_network(
+            shearzone_names=None, export=True, path="linux", domain=self.box
+        )
         self.gb = network.mesh(mesh_args=self.mesh_args)
         pp.contact_conditions.set_projections(self.gb)
         self.Nd = self.gb.dim_max()
@@ -88,7 +105,7 @@ def run_model(setup: AbstractModel):
         A model that (ultimately) inherits from AbstractModel.
 
     """
-    params = {'folder_name': 'GTS/isc_modelling/results/isotropic_setup_viz'}
+    params = {"folder_name": "GTS/isc_modelling/results/isotropic_setup_viz"}
     model = setup(params=params)
     model.prepare_simulation()
     model.init_viz()
@@ -101,7 +118,7 @@ def run_model(setup: AbstractModel):
         g_list = model.gb.grids_of_dimension(i)
         for g in g_list:
             data = model.gb.node_props(g)
-            data[pp.STATE]['u_'] = np.zeros((3, g.num_cells))
+            data[pp.STATE]["u_"] = np.zeros((3, g.num_cells))
 
     # Get the 3D data.
     g3 = model.gb.grids_of_dimension(3)[0]
@@ -112,8 +129,8 @@ def run_model(setup: AbstractModel):
 
     # Get the state, transform it, and save to another state variable
     sol3 = d3[pp.STATE][model.displacement_variable]
-    trsol3 = np.reshape(np.copy(sol3), newshape=(g3.dim, g3.num_cells), order='F')
-    d3[pp.STATE][model.displacement_variable + '_'] = trsol3
+    trsol3 = np.reshape(np.copy(sol3), newshape=(g3.dim, g3.num_cells), order="F")
+    d3[pp.STATE][model.displacement_variable + "_"] = trsol3
 
     # Export solution
     model.export_step()

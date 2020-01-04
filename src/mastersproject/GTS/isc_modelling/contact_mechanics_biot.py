@@ -10,7 +10,6 @@ import GTS as gts
 
 
 class ContactMechanicsBiotISC(ContactMechanicsBiot):
-
     def __init__(self, params=None, **kwargs):
         """ Initialize the Contact Mechanics Biot
 
@@ -37,9 +36,11 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
             pass
         assert isinstance(params, dict), "Params should be a dictionary."
         params = {}
-        _root = "/home/haakon/mastersproject/src/mastersproject/GTS/isc_modelling/results/"
+        _root = (
+            "/home/haakon/mastersproject/src/mastersproject/GTS/isc_modelling/results/"
+        )
         root = params.get("root", _root)
-        assert(os.path.isdir(root))  # Root must be an existing path
+        assert os.path.isdir(root)  # Root must be an existing path
         path = root + params.get("folder_name", "biot_contact_mechanics_viz")
         params["folder_name"] = path
         logging.info(f"Visualization folder path: {path}")
@@ -61,24 +62,33 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
 
         # Boundary conditions, initial conditions, source conditions:
         # Scalar source
-        self.source_scalar_borehole_shearzone = {'shearzone': 'S1_1', 'borehole': 'INJ1'}
-
+        self.source_scalar_borehole_shearzone = {
+            "shearzone": "S1_1",
+            "borehole": "INJ1",
+        }
 
         # Fractures are created in the order of self.shearzone_names.
         # This is effectively an index of the shearzone at hand.
-        default_shearzone_set = ['S1_1', 'S1_2', 'S1_3', 'S3_1', 'S3_2']
-        self.shearzone_names = kwargs.get('shearzone_names', default_shearzone_set)
+        default_shearzone_set = ["S1_1", "S1_2", "S1_3", "S3_1", "S3_2"]
+        self.shearzone_names = kwargs.get("shearzone_names", default_shearzone_set)
 
         # Mesh size arguments
-        default_mesh_args = {'mesh_size_frac': 10, 'mesh_size_min': 10}
-        self.mesh_args = kwargs.get('mesh_args', default_mesh_args)
+        default_mesh_args = {"mesh_size_frac": 10, "mesh_size_min": 10}
+        self.mesh_args = kwargs.get("mesh_args", default_mesh_args)
 
         # Bounding box of the domain
-        default_box = {'xmin': -6, 'xmax': 80, 'ymin': 55, 'ymax': 150, 'zmin': 0, 'zmax': 50}
-        self.box = kwargs.get('box', default_box)
+        default_box = {
+            "xmin": -6,
+            "xmax": 80,
+            "ymin": 55,
+            "ymax": 150,
+            "zmin": 0,
+            "zmax": 50,
+        }
+        self.box = kwargs.get("box", default_box)
 
         # TODO: Think of a good way to include ISCData in this class
-        self.isc = gts.ISCData(path=kwargs.get('data_path', 'linux'))
+        self.isc = gts.ISCData(path=kwargs.get("data_path", "linux"))
 
     def create_grid(self, overwrite_grid=False):
         """ Create a GridBucket of a 3D domain with fractures
@@ -103,8 +113,9 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
             network = gts.fracture_network(
                 shearzone_names=self.shearzone_names,
                 export=True,
-                path='linux',
-                domain=self.box)
+                path="linux",
+                domain=self.box,
+            )
             self.gb = network.mesh(mesh_args=self.mesh_args)
             pp.contact_conditions.set_projections(self.gb)
             self.Nd = self.gb.dim_max()
@@ -114,18 +125,18 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
             #   Currently, we assume that fracture order is preserved in creation process.
             #   This may be untrue if fractures are (completely) split in the process.
             # Set fracture grid names:
-            self.gb.add_node_props(keys='name')  # Add 'name' as node prop to all grids.
+            self.gb.add_node_props(keys="name")  # Add 'name' as node prop to all grids.
             fracture_grids = self.gb.get_grids(lambda g: g.dim == 2)
             for i, sz_name in enumerate(self.shearzone_names):
-                self.gb.set_node_prop(fracture_grids[i], key='name', val=sz_name)
+                self.gb.set_node_prop(fracture_grids[i], key="name", val=sz_name)
             # Use self.gb.node_props(g, 'name') to get value.
         else:
-            assert(self.Nd is not None)
+            assert self.Nd is not None
 
             # We require that 2D grids have a name.
             g = self.gb.get_grids(lambda g: g.dim == 2)
             for i, sz in enumerate(self.shearzone_names):
-                assert(self.gb.node_props(g[i], 'name') is not None)
+                assert self.gb.node_props(g[i], "name") is not None
 
     def bc_type_mechanics(self, g):
         # TODO: Custom mechanics boundary conditions (type).
@@ -167,14 +178,14 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         bh_sz = self.source_scalar_borehole_shearzone
 
         # Get name of grid
-        grid_name = self.gb.node_props(g, 'name')
+        grid_name = self.gb.node_props(g, "name")
 
         # 0-values for all non-2D grids
         if grid_name is None:
             return np.zeros(g.num_cells)
 
         # Also 0-values for all 2D-grids except the 'S1_1' shear-zone.
-        if grid_name != bh_sz['shearzone']:
+        if grid_name != bh_sz["shearzone"]:
             return np.zeros(g.num_cells)
 
         logging.info(f"Grid of name: {grid_name}, and dimension {g.dim}")
@@ -183,13 +194,15 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         # Get necessary data
         df = self.isc.borehole_plane_intersection()
 
-        _mask = (df.shearzone == bh_sz['shearzone']) & (df.borehole == bh_sz['borehole'])
-        result = df.loc[_mask, ('x_sz', 'y_sz', 'z_sz')]
+        _mask = (df.shearzone == bh_sz["shearzone"]) & (
+            df.borehole == bh_sz["borehole"]
+        )
+        result = df.loc[_mask, ("x_sz", "y_sz", "z_sz")]
         if result.empty:
             raise ValueError("No intersection found.")
 
         pts = result.to_numpy().T
-        assert (pts.shape[1] == 1), "Should only be one intersection"
+        assert pts.shape[1] == 1, "Should only be one intersection"
 
         # Find cell nearest the desired point.
         ids, dsts = g.closest_cell(pts, return_distance=True)
@@ -276,7 +289,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
 
     def export_step(self):
         """ Implementation of export step"""
-        export_fields = [self.displacement_variable + '_']  # self.scalar_variable
+        export_fields = [self.displacement_variable + "_"]  # self.scalar_variable
         # Test out: Export a single grid.
         # g3 = self.gb.grids_of_dimension(self.gb.dim_max())[0]
         # data = self.gb.node_props(g3)
@@ -290,8 +303,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.viz.write_pvd(num_steps)
 
 
-def run_model(model: ContactMechanicsBiotISC = None,
-              viz_folder_name='biot'):
+def run_model(model: ContactMechanicsBiotISC = None, viz_folder_name="biot"):
     """ Set up and run the biot model.
 
     Parameters
@@ -301,10 +313,12 @@ def run_model(model: ContactMechanicsBiotISC = None,
         Path to storage folder.
     """
     if model is None:
-        params = {'folder_name': viz_folder_name}
+        params = {"folder_name": viz_folder_name}
         model = ContactMechanicsBiotISC(params=params)
     model.prepare_simulation()
-    model.init_viz(overwrite=True)  # Overwrite the viz created in pp.contact_mechanics_biot at prepare_simulation()
+    model.init_viz(
+        overwrite=True
+    )  # Overwrite the viz created in pp.contact_mechanics_biot at prepare_simulation()
     time_steps = model.time_steps_array
 
     # breakpoint()
@@ -318,7 +332,7 @@ def run_model(model: ContactMechanicsBiotISC = None,
         gd_list = model.gb.grids_of_dimension(dim)
         for g in gd_list:
             data = model.gb.node_props(g)
-            data[pp.STATE]['u_'] = np.zeros((3, g.num_cells))
+            data[pp.STATE]["u_"] = np.zeros((3, g.num_cells))
 
     # Get the 3D data.
     g3 = model.gb.grids_of_dimension(3)[0]
@@ -329,12 +343,12 @@ def run_model(model: ContactMechanicsBiotISC = None,
         model.current_step = curr_step
         x = model.assemble_and_solve_linear_system(tol)  # Solve time step
         # TODO: Overwrite method and save errors and iteration counter.
-        model.after_newton_convergence(x,None,None)  # Distribute solution
+        model.after_newton_convergence(x, None, None)  # Distribute solution
 
         # Get the state, transform it, and save to another state variable
         sol3 = d3[pp.STATE][model.displacement_variable]
-        trsol3 = np.reshape(np.copy(sol3), newshape=(g3.dim, g3.num_cells), order='F')
-        d3[pp.STATE][model.displacement_variable + '_'] = trsol3
+        trsol3 = np.reshape(np.copy(sol3), newshape=(g3.dim, g3.num_cells), order="F")
+        d3[pp.STATE][model.displacement_variable + "_"] = trsol3
 
         # breakpoint()
 

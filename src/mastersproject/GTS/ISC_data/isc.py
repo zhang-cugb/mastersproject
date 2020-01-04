@@ -18,7 +18,6 @@ import GTS as gts
 
 
 class ISCData:
-
     def __init__(self, path=None):
         """ Initialize the class managing data from the ISC project
 
@@ -31,40 +30,49 @@ class ISCData:
         """
         # Verify path to data set.
         if path is None:
-            path = 'linux'
-        if path == 'linux':
-            _root = Path('/home/haakon/mastersproject/src/mastersproject/')
+            path = "linux"
+        if path == "linux":
+            _root = Path("/home/haakon/mastersproject/src/mastersproject/")
             # _root = Path.cwd()  # should be path/to/mastersproject/src/mastersproject
-            self.data_path = _root / 'GTS/01BasicInputData'
-        elif path == 'windows':
-            _root = Path('C:/Users/Haakon/OneDrive/Dokumenter/FORSKNING/mastersproject/src/mastersproject')
-            self.data_path = _root / 'GTS/01BasicInputData'
+            self.data_path = _root / "GTS/01BasicInputData"
+        elif path == "windows":
+            _root = Path(
+                "C:/Users/Haakon/OneDrive/Dokumenter/FORSKNING/mastersproject/src/mastersproject"
+            )
+            self.data_path = _root / "GTS/01BasicInputData"
         else:
             self.data_path = Path(path)
 
         logging.info(f"Data located at: {self.data_path}.")
-        assert (self.data_path.is_dir())
+        assert self.data_path.is_dir()
 
         # ========= CONSTANTS ==========================================================================================
         # Swiss to gts coordinates.
         self.gts_coordinates = np.array((667400, 158800, 1700))
 
         # Name of boreholes.
-        self.borehole_types = {'FBS': np.array([1, 2, 3]),
-                               'SBH': np.array([1, 3, 4]),  # Note the skip of numbering for SBH
-                               'INJ': np.array([1, 2]),
-                               'PRP': np.array([1, 2, 3]),
-                               'GEO': np.array([1, 2, 3, 4])}
+        self.borehole_types = {
+            "FBS": np.array([1, 2, 3]),
+            "SBH": np.array([1, 3, 4]),  # Note the skip of numbering for SBH
+            "INJ": np.array([1, 2]),
+            "PRP": np.array([1, 2, 3]),
+            "GEO": np.array([1, 2, 3, 4]),
+        }
 
-        self.boreholes = [bh_set + str(bh_num) for bh_set in self.borehole_types
-                          for bh_num in self.borehole_types[bh_set]]
+        self.boreholes = [
+            bh_set + str(bh_num)
+            for bh_set in self.borehole_types
+            for bh_num in self.borehole_types[bh_set]
+        ]
 
         # Name of shearzones
-        self.shearzone_types = {'S1': np.array([1, 2, 3]),
-                                'S3': np.array([1, 2])}
+        self.shearzone_types = {"S1": np.array([1, 2, 3]), "S3": np.array([1, 2])}
 
-        self.shearzones = [sz_set + '_' + str(sz_num) for sz_set in self.shearzone_types
-                           for sz_num in self.shearzone_types[sz_set]]
+        self.shearzones = [
+            sz_set + "_" + str(sz_num)
+            for sz_set in self.shearzone_types
+            for sz_num in self.shearzone_types[sz_set]
+        ]
 
         # ============ LOAD DATA =======================================================================================
 
@@ -87,7 +95,7 @@ class ISCData:
 
     # ========= PUBLIC CLASS METHODS ===================================================================================
 
-    def get_shearzone(self, sz: str, coords: str = 'gts'):
+    def get_shearzone(self, sz: str, coords: str = "gts"):
         """ Extract shear-zone coordinates for a given shear-zone
 
         Coordinates extracted will either be 'swiss' or 'gts'.
@@ -102,12 +110,18 @@ class ISCData:
         """
         df = self.structures
         assert sz in self.shearzones, f"unknown shear-zone {sz}."
-        assert coords in ['swiss', 'gts'], f"unknown coordinate system {coords}."
-        sz = df.loc[df.shearzone == sz, (f'x_{coords}', f'y_{coords}', f'z_{coords}')]
+        assert coords in ["swiss", "gts"], f"unknown coordinate system {coords}."
+        sz = df.loc[df.shearzone == sz, (f"x_{coords}", f"y_{coords}", f"z_{coords}")]
         return sz.to_numpy().T
 
-    def structures_depth(self, borehole: str, depth: np.ndarray,
-                         structure=None, shearzone=None, coords='gts'):
+    def structures_depth(
+        self,
+        borehole: str,
+        depth: np.ndarray,
+        structure=None,
+        shearzone=None,
+        coords="gts",
+    ):
         """ Get structures in a borehole at depth
 
         For a given borehole, and a given depth (or depth interval),
@@ -126,8 +140,10 @@ class ISCData:
         pd.DataFrame: Filtered dataframe
 
         """
-        assert (depth.shape[0] == 2) and (depth[0] <= depth[1]), "Depth must be given as an interval."
-        assert coords in ['swiss', 'gts'], f"unknown coordinate system {coords}."
+        assert (depth.shape[0] == 2) and (
+            depth[0] <= depth[1]
+        ), "Depth must be given as an interval."
+        assert coords in ["swiss", "gts"], f"unknown coordinate system {coords}."
         df = self.structures
 
         # Structure mask
@@ -156,9 +172,21 @@ class ISCData:
         _mask = _mask_bh & _mask_depth & _mask_struc & _mask_sz
 
         # Filter DataFrame #
-        _bh = df.loc[_mask, ('depth', 'azimuth_struc', 'dip', 'aperture', 'type',
-                             'borehole', 'shearzone',
-                             f'x_{coords}', f'y_{coords}', f'z_{coords}')]
+        _bh = df.loc[
+            _mask,
+            (
+                "depth",
+                "azimuth_struc",
+                "dip",
+                "aperture",
+                "type",
+                "borehole",
+                "shearzone",
+                f"x_{coords}",
+                f"y_{coords}",
+                f"z_{coords}",
+            ),
+        ]
         return _bh
 
     def borehole_plane_intersection(self):
@@ -182,19 +210,29 @@ class ISCData:
 
         # 1. Step: Compute direction vectors to each borehole ==========================================================
         borehole_data = self.borehole_geometry.copy()
-        borehole_data['depth'] = 0
-        borehole_to_global_coords(data=borehole_data,
-                                  x='x', y='y', z='z',
-                                  depth='depth',
-                                  upward_gradient='upward_gradient',
-                                  azimuth='azimuth')
+        borehole_data["depth"] = 0
+        borehole_to_global_coords(
+            data=borehole_data,
+            x="x",
+            y="y",
+            z="z",
+            depth="depth",
+            upward_gradient="upward_gradient",
+            azimuth="azimuth",
+        )
 
         # Extract relevant columns from borehole data
-        _mask = ['borehole', 'x_gts', 'y_gts', 'z_gts', '_trig_x', '_trig_y', '_trig_z']
+        _mask = ["borehole", "x_gts", "y_gts", "z_gts", "_trig_x", "_trig_y", "_trig_z"]
         bh_data = borehole_data[_mask]
 
-        mapper = {'x_gts': 'x_bh', 'y_gts': 'y_bh', 'z_gts': 'z_bh',
-                  '_trig_x': 'r_x', '_trig_y': 'r_y', '_trig_z': 'r_z'}
+        mapper = {
+            "x_gts": "x_bh",
+            "y_gts": "y_bh",
+            "z_gts": "z_bh",
+            "_trig_x": "r_x",
+            "_trig_y": "r_y",
+            "_trig_z": "r_z",
+        }
         bh_data = bh_data.rename(columns=mapper)
 
         # 2. Step: Calculate shear-zone unit normals and centroids =====================================================
@@ -204,26 +242,27 @@ class ISCData:
         # i.e. only the shear-zones used for computing shear-zone planes.
         sz_bh = self.shearzone_borehole_geometry.copy()
         sz_bh = sz_bh[sz_bh.depth.notna()]
-        sz_bh = sz_bh.rename(columns={'depth': 'old_depth'})
+        sz_bh = sz_bh.rename(columns={"depth": "old_depth"})
 
         # 4. Step: Merge the collected data ============================================================================
-        df = sz.merge(sz_bh, on='shearzone').merge(bh_data, on='borehole')
+        df = sz.merge(sz_bh, on="shearzone").merge(bh_data, on="borehole")
 
         # 5. Step: Calculate new shear-zone borehole intersections. ====================================================
         # Quantities
-        n_vec = ['n_x', 'n_y', 'n_z']
-        r_vec = ['r_x', 'r_y', 'r_z']
-        bh_coords = ['x_bh', 'y_bh', 'z_bh']
-        sz_coords = ['x_c', 'y_c', 'z_c']
+        n_vec = ["n_x", "n_y", "n_z"]
+        r_vec = ["r_x", "r_y", "r_z"]
+        bh_coords = ["x_bh", "y_bh", "z_bh"]
+        sz_coords = ["x_c", "y_c", "z_c"]
 
         # Depth calculation
-        df['depth'] = ((df[sz_coords].values - df[bh_coords].values) * df[n_vec].values).sum(axis=1) \
-                      / (df[n_vec].values * df[r_vec].values).sum(axis=1)
+        df["depth"] = (
+            (df[sz_coords].values - df[bh_coords].values) * df[n_vec].values
+        ).sum(axis=1) / (df[n_vec].values * df[r_vec].values).sum(axis=1)
 
         # Calculate global coordinates
-        df.loc[:, 'x_sz'] = df.x_bh + (df.depth * df.r_x)
-        df.loc[:, 'y_sz'] = df.y_bh + (df.depth * df.r_y)
-        df.loc[:, 'z_sz'] = df.z_bh + (df.depth * df.r_z)
+        df.loc[:, "x_sz"] = df.x_bh + (df.depth * df.r_x)
+        df.loc[:, "y_sz"] = df.y_bh + (df.depth * df.r_y)
+        df.loc[:, "z_sz"] = df.z_bh + (df.depth * df.r_z)
 
         return df
 
@@ -237,15 +276,15 @@ class ISCData:
 
         results = []
         for sz in self.shearzones:
-            point_cloud = self.get_shearzone(sz=sz, coords='gts')
+            point_cloud = self.get_shearzone(sz=sz, coords="gts")
             n_pts = point_cloud.shape[1]
             centroid = np.sum(point_cloud, axis=1) / n_pts
             normal = gts.fit_normal_to_points(point_cloud)
 
             data = np.atleast_2d(np.hstack((centroid, normal)))
-            columns = ('x_c', 'y_c', 'z_c', 'n_x', 'n_y', 'n_z')
+            columns = ("x_c", "y_c", "z_c", "n_x", "n_y", "n_z")
             frame = pd.DataFrame(data=data, columns=columns)
-            frame['shearzone'] = sz
+            frame["shearzone"] = sz
             results.append(frame)
 
         df = pd.concat(results, ignore_index=True)
@@ -265,14 +304,16 @@ class ISCData:
             Columns:
         """
         file_loc = self.data_path / "02_Boreholes"
-        columns = ['x', 'y', 'z', 'length', 'diameter', 'azimuth', 'upward_gradient']
+        columns = ["x", "y", "z", "length", "diameter", "azimuth", "upward_gradient"]
 
         data = []
         for parent in self.borehole_types:
-            path = file_loc / (parent + '.txt')
-            frame = pd.read_csv(path, sep=None, names=columns, engine='python')
-            borehole_name = np.array([parent + str(id) for id in self.borehole_types[parent]])
-            frame['borehole'] = borehole_name
+            path = file_loc / (parent + ".txt")
+            frame = pd.read_csv(path, sep=None, names=columns, engine="python")
+            borehole_name = np.array(
+                [parent + str(id) for id in self.borehole_types[parent]]
+            )
+            frame["borehole"] = borehole_name
             data.append(frame)
 
         df = pd.concat(data, ignore_index=True)
@@ -286,13 +327,15 @@ class ISCData:
 
         """
         file_loc = self.data_path / "03_GeologicalMapping" / "02_BoreholeIntersections"
-        columns = ['depth', 'azimuth', 'dip', 'aperture', 'type']
+        columns = ["depth", "azimuth", "dip", "aperture", "type"]
 
         data = []
         for borehole in self.boreholes:
-            path = file_loc / (borehole + '_structures.txt')
-            frame = pd.read_csv(path, sep=None, names=columns, skiprows=2, engine='python')
-            frame['borehole'] = borehole
+            path = file_loc / (borehole + "_structures.txt")
+            frame = pd.read_csv(
+                path, sep=None, names=columns, skiprows=2, engine="python"
+            )
+            frame["borehole"] = borehole
             data.append(frame)
         df = pd.concat(data, ignore_index=True)
         return df
@@ -302,16 +345,14 @@ class ISCData:
 
         """
         file_loc = self.data_path / "03_GeologicalMapping" / "01_TunnelIntersections"
-        columns = ['x', 'y', 'z', 'true_dip_direction', 'dip', 'tunnel', 'shearzone']
+        columns = ["x", "y", "z", "true_dip_direction", "dip", "tunnel", "shearzone"]
 
         path = file_loc / "Tunnel_intersections.txt"
-        df = pd.read_csv(path, sep=None, names=columns, engine='python')
-        df['shearzone'] = df['shearzone'].apply(rename_sz)
+        df = pd.read_csv(path, sep=None, names=columns, engine="python")
+        df["shearzone"] = df["shearzone"].apply(rename_sz)
         df = df.rename(
-            columns={
-                'true_dip_direction': 'azimuth_struc',
-                'tunnel': 'borehole',
-            })
+            columns={"true_dip_direction": "azimuth_struc", "tunnel": "borehole",}
+        )
         return df
 
     def _shearzone_borehole_data(self):
@@ -328,15 +369,17 @@ class ISCData:
 
         """
         file_loc = self.data_path / "06_ShearzoneInterpolation"
-        columns = ['borehole', 'depth']
+        columns = ["borehole", "depth"]
 
         data = []
         for parent in self.shearzone_types:
             for sz_num in self.shearzone_types[parent]:
                 sz_name = parent + "_" + str(sz_num)  # e.g. 'S1_1'
                 path = file_loc / (sz_name + ".txt")
-                frame = pd.read_csv(path, sep=None, names=columns, skiprows=1, engine='python')
-                frame['shearzone'] = sz_name
+                frame = pd.read_csv(
+                    path, sep=None, names=columns, skiprows=1, engine="python"
+                )
+                frame["shearzone"] = sz_name
                 data.append(frame)
         df = pd.concat(data, ignore_index=True)
         return df
@@ -364,24 +407,29 @@ class ISCData:
         shearzone_borehole = self.shearzone_borehole_geometry
 
         # Remove rows with no intersection.
-        shearzone_borehole = shearzone_borehole[shearzone_borehole['depth'].notna()]
+        shearzone_borehole = shearzone_borehole[shearzone_borehole["depth"].notna()]
 
         # 2. Step: Import borehole - structure data.
-        structures = self.borehole_structures.merge(self.borehole_geometry,
-                                                    how='outer', on='borehole',
-                                                    suffixes=('_struc', '_bh'),
-                                                    validate='m:1')
+        structures = self.borehole_structures.merge(
+            self.borehole_geometry,
+            how="outer",
+            on="borehole",
+            suffixes=("_struc", "_bh"),
+            validate="m:1",
+        )
 
         # 3. Step: Left merge data structures with simulation-shearzones.
         # Notes:
         # - Absolute tolerance = 0.01
         # - exact match on column = 'borehole'
-        _merge = pd.merge_asof(structures.sort_values('depth'),
-                               shearzone_borehole.sort_values('depth'),
-                               by='borehole',
-                               on='depth',
-                               tolerance=0.01,
-                               direction='nearest')
+        _merge = pd.merge_asof(
+            structures.sort_values("depth"),
+            shearzone_borehole.sort_values("depth"),
+            by="borehole",
+            on="depth",
+            tolerance=0.01,
+            direction="nearest",
+        )
 
         # The above merge includes some nearby 'fractures', etc.
         # All shearzones are classified as 'S1 Shear-zone' or 'S3 Shear-zone'
@@ -390,14 +438,16 @@ class ISCData:
 
         # 4. Step: Complete classification of shear-zones.
         _mask_nna = _merge.shearzone.notna()
-        _mask_szset = _merge.type.isin(['S1 Shear-zone', 'S3 Shear-zone', 'Minor ductile Shear-zone'])
+        _mask_szset = _merge.type.isin(
+            ["S1 Shear-zone", "S3 Shear-zone", "Minor ductile Shear-zone"]
+        )
         _shearzones = _merge[_mask_nna & _mask_szset]
 
         # 5. Step: Get indices of non-shearzones:
         _index_other = set(_merge.index) - set(_shearzones.index)
 
         # 6. Set non-shearzones to nan
-        _merge.loc[np.array(list(_index_other)), 'shearzone'] = np.nan
+        _merge.loc[np.array(list(_index_other)), "shearzone"] = np.nan
 
         return _merge
 
@@ -417,20 +467,23 @@ class ISCData:
         # Tunnel shearzone data
         tunnel_structures = self.tunnel_structures
 
-        structures = pd.concat([
-            borehole_structures,
-            tunnel_structures],
-            ignore_index=True, sort=False)
+        structures = pd.concat(
+            [borehole_structures, tunnel_structures], ignore_index=True, sort=False
+        )
 
         # Fill NaN-values in all columns to 0 except in column 'shearzone', for which we do nothing.
         structures = structures.fillna(
-            value={
-                **{s: 0 for s in borehole_structures},
-                **{'shearzone': np.nan}
-            })
+            value={**{s: 0 for s in borehole_structures}, **{"shearzone": np.nan}}
+        )
 
-        mapping = {'x': 'x', 'y': 'y', 'z': 'z', 'depth': 'depth',
-                   'upward_gradient': 'upward_gradient', 'azimuth': 'azimuth_bh'}
+        mapping = {
+            "x": "x",
+            "y": "y",
+            "z": "z",
+            "depth": "depth",
+            "upward_gradient": "upward_gradient",
+            "azimuth": "azimuth_bh",
+        }
         borehole_to_global_coords(structures, **mapping)
 
         return structures
@@ -438,10 +491,17 @@ class ISCData:
 
 # UTILITY METHODS ======================================================================================================
 
-def borehole_to_global_coords(data: pd.DataFrame, *,
-                              x: str, y: str, z: str, depth: str,
-                              upward_gradient: str, azimuth: str,
-                              ):
+
+def borehole_to_global_coords(
+    data: pd.DataFrame,
+    *,
+    x: str,
+    y: str,
+    z: str,
+    depth: str,
+    upward_gradient: str,
+    azimuth: str,
+):
     """ Convert coordinates in a borehole to global coordinates
 
     For all rows in a DataFrame, convert some (x,y,z) coordinates to global
@@ -455,24 +515,27 @@ def borehole_to_global_coords(data: pd.DataFrame, *,
 
     # Compute angle scalers
     rad = np.pi / 180
-    data.loc[:, '_trig_x'] = (data[upward_gradient] * rad).apply(np.cos) * \
-                             (data[azimuth] * rad).apply(np.sin)
+    data.loc[:, "_trig_x"] = (data[upward_gradient] * rad).apply(np.cos) * (
+        data[azimuth] * rad
+    ).apply(np.sin)
 
-    data.loc[:, '_trig_y'] = (data[upward_gradient] * rad).apply(np.cos) * \
-                             (data[azimuth] * rad).apply(np.cos)
+    data.loc[:, "_trig_y"] = (data[upward_gradient] * rad).apply(np.cos) * (
+        data[azimuth] * rad
+    ).apply(np.cos)
 
-    data.loc[:, '_trig_z'] = (data[upward_gradient] * rad).apply(np.sin)
+    data.loc[:, "_trig_z"] = (data[upward_gradient] * rad).apply(np.sin)
 
     # Swiss coordinates
-    data.loc[:, 'x_swiss'] = data[x] + (data[depth] * data['_trig_x'])
-    data.loc[:, 'y_swiss'] = data[y] + (data[depth] * data['_trig_y'])
-    data.loc[:, 'z_swiss'] = data[z] + (data[depth] * data['_trig_z'])
+    data.loc[:, "x_swiss"] = data[x] + (data[depth] * data["_trig_x"])
+    data.loc[:, "y_swiss"] = data[y] + (data[depth] * data["_trig_y"])
+    data.loc[:, "z_swiss"] = data[z] + (data[depth] * data["_trig_z"])
 
     # TODO: Use attribute self.gts_coordinates instead.
     #   Also, remove _swiss coordinates, as they are not used.
     # GTS coordinates
-    data[['x_gts', 'y_gts', 'z_gts']] = data[['x_swiss', 'y_swiss', 'z_swiss']] \
-        .apply(swiss_to_gts, axis=1, raw=True, result_type='expand')
+    data[["x_gts", "y_gts", "z_gts"]] = data[["x_swiss", "y_swiss", "z_swiss"]].apply(
+        swiss_to_gts, axis=1, raw=True, result_type="expand"
+    )
 
 
 def swiss_to_gts(v):
@@ -492,4 +555,4 @@ def rename_sz(sz):
     sz = str(sz)
     sz_set = sz[0]
     num = sz[1]
-    return f'S{sz_set}_{num}'
+    return f"S{sz_set}_{num}"

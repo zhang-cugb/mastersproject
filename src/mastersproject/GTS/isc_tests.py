@@ -1,7 +1,7 @@
 from GTS.ISC_data.isc import ISCData
 
-class test_isc_data_import:
 
+class test_isc_data_import:
     def __init__(self):
         self.cls = ISCData()
 

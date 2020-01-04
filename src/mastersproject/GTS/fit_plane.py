@@ -47,7 +47,7 @@ def convex_hull(p: np.ndarray) -> np.ndarray:
     project_plane_matrix(...)
     """
 
-    assert(pp.geometry_property_checks.points_are_planar(p))
+    assert pp.geometry_property_checks.points_are_planar(p)
 
     # Move to mean
     mean = np.mean(p, axis=1)
@@ -85,7 +85,7 @@ def fit_normal_to_points(points: np.ndarray) -> np.array:
     normal : np.array (3,)
         Normalized normal vector to plane
     """
-    assert ((points.shape[0] == 3) & (points.shape[1] >= 3))
+    assert (points.shape[0] == 3) & (points.shape[1] >= 3)
     pts = points.copy()
     N = pts.shape[1]
 
@@ -137,13 +137,13 @@ def plane_from_points(points: np.ndarray) -> np.ndarray:
         Array of n 3D points, projected to the best fit plane
 
     """
-    assert ((points.shape[0] == 3) & (points.shape[1] >= 3)), "Wrong input shape."
+    assert (points.shape[0] == 3) & (points.shape[1] >= 3), "Wrong input shape."
 
     N = points.shape[1]
     centroid = np.sum(points, axis=1) / N
     pointsR = (points.T - centroid).T
     normal = fit_normal_to_points(pointsR)
-    assert (np.isclose(np.sqrt((normal ** 2).sum()), 1))  # Assert normalized
+    assert np.isclose(np.sqrt((normal ** 2).sum()), 1)  # Assert normalized
 
     proj = centroid + pointsR.T - np.outer(np.dot(pointsR.T, normal), normal)
 
