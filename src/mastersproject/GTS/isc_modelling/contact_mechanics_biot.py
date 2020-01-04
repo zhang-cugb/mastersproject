@@ -20,8 +20,9 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
                 name of storage folder, relative to root.
             root : str
                 root to folder name (path must exist)
+                Default: /home/haakon/mastersproject/src/mastersproject/GTS/isc_modelling/results/
         kwargs
-            time_step : float
+            time_step : float : Default = 1
                 size of a time step (post-scaled to self.length_scale ** 2)
             num_steps : int : Default = 2
                 Total number of time steps
