@@ -305,7 +305,10 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.viz.write_pvd(num_steps)
 
 
-def run_model(model: ContactMechanicsBiotISC = None, viz_folder_name="biot"):
+def run_model(
+        model: ContactMechanicsBiotISC = None,
+        viz_folder_name: str = "biot",
+        file_name: str = "test_biot"):
     """ Set up and run the biot model.
 
     Parameters
@@ -313,12 +316,15 @@ def run_model(model: ContactMechanicsBiotISC = None, viz_folder_name="biot"):
         input model
     viz_folder_name : str
         Path to storage folder.
+    file_name : str
+        root name of output files
     """
     if model is None:
         params = {"folder_name": viz_folder_name}
         model = ContactMechanicsBiotISC(params=params)
     model.prepare_simulation()
     model.init_viz(
+        file_name=file_name,
         overwrite=True
     )  # Overwrite the viz created in pp.contact_mechanics_biot at prepare_simulation()
     time_steps = model.time_steps_array
