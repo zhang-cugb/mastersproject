@@ -33,7 +33,8 @@ class ISCData:
         if path is None:
             path = 'linux'
         if path == 'linux':
-            _root = Path.cwd()  # should be path/to/mastersproject/src/mastersproject
+            _root = Path('/home/haakon/mastersproject/src/mastersproject/')
+            # _root = Path.cwd()  # should be path/to/mastersproject/src/mastersproject
             self.data_path = _root / 'GTS/01BasicInputData'
         elif path == 'windows':
             _root = Path('C:/Users/Haakon/OneDrive/Dokumenter/FORSKNING/mastersproject/src/mastersproject')
