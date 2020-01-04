@@ -56,6 +56,11 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.gb = None
         self.Nd = None
 
+        # Fractures are created in the order of self.shearzone_names.
+        # This is effectively an index of the shearzone at hand.
+        default_shearzone_set = ['S1_1', 'S1_2', 'S1_3', 'S3_1', 'S3_2']
+        self.shearzone_names = kwargs.get('shearzone_names', default_shearzone_set)
+
         # Mesh size arguments
         default_mesh_args = {'mesh_size_frac': 10, 'mesh_size_min': 10}
         self.mesh_args = kwargs.get('mesh_args', default_mesh_args)

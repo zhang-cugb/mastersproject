@@ -84,6 +84,8 @@ class ISCData:
         # 2. Step: All characterized structures ========================================================================
         self.structures = self._full_structure_geometry()
 
+    # ========= PUBLIC CLASS METHODS ===================================================================================
+
     def get_shearzone(self, sz: str, coords: str = 'gts'):
         """ Extract shear-zone coordinates for a given shear-zone
 
