@@ -90,12 +90,32 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
 
         """
         if (self.gb is None) or overwrite_grid:
-            network = gts.fracture_network(shearzone_names=None, export=True, path='linux', domain=self.box)
+            network = gts.fracture_network(
+                shearzone_names=self.shearzone_names,
+                export=True,
+                path='linux',
+                domain=self.box)
             self.gb = network.mesh(mesh_args=self.mesh_args)
             pp.contact_conditions.set_projections(self.gb)
             self.Nd = self.gb.dim_max()
+
+            # TODO: Make this procedure "safe".
+            #   E.g. assign names by comparing normal vector and centroid.
+            #   Currently, we assume that fracture order is preserved in creation process.
+            #   This may be untrue if fractures are (completely) split in the process.
+            # Set fracture grid names:
+            self.gb.add_node_props(keys='name')  # Add 'name' as node prop to all grids.
+            fracture_grids = self.gb.get_grids(lambda g: g.dim == 2)
+            for i, sz_name in enumerate(self.shearzone_names):
+                self.gb.set_node_prop(fracture_grids[i], key='name', val=sz_name)
+            # Use self.gb.node_props(g, 'name') to get value.
         else:
             assert(self.Nd is not None)
+
+            # We require that 2D grids have a name.
+            g = self.gb.get_grids(lambda g: g.dim == 2)
+            for i, sz in enumerate(self.shearzone_names):
+                assert(self.gb._nodes[g[i]].get('name', None) is not None)
 
     def bc_type_mechanics(self, g):
         # TODO: Custom mechanics boundary conditions (type).
