@@ -291,7 +291,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
 
     def export_step(self):
         """ Implementation of export step"""
-        export_fields = [self.displacement_variable + "_"]  # self.scalar_variable
+        export_fields = [self.displacement_variable + "_", self.scalar_variable]  # self.scalar_variable
         # Test out: Export a single grid.
         # g3 = self.gb.grids_of_dimension(self.gb.dim_max())[0]
         # data = self.gb.node_props(g3)
