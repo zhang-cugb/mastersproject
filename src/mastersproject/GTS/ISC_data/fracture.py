@@ -83,7 +83,8 @@ def fracture_network(shearzone_names, export: bool = False, path=None, **network
     """
     if isinstance(path, str):
         if path == 'linux':
-            _root = Path.cwd()  # should be path/to/mastersproject/src/mastersproject
+            _root = Path('/home/haakon/mastersproject/src/mastersproject/')
+            # _root = Path.cwd()  # should be path/to/mastersproject/src/mastersproject
         elif path == 'windows':
             _root = Path('C:/Users/Haakon/OneDrive/Dokumenter/FORSKNING/mastersproject/src/mastersproject')
         else:
