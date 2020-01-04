@@ -33,9 +33,8 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
 
         # Specify absolute visualization storage path
         if params is None:
-            pass
+            params = {}
         assert isinstance(params, dict), "Params should be a dictionary."
-        params = {}
         _root = (
             "/home/haakon/mastersproject/src/mastersproject/GTS/isc_modelling/results/"
         )
