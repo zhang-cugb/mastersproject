@@ -42,6 +42,8 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         assert os.path.isdir(root)  # Root must be an existing path
         self.path = root + params.get("folder_name", "biot_contact_mechanics_viz")
         params["folder_name"] = self.path
+        if not os.path.exists(self.path):
+            os.makedirs(self.path, exist_ok=True)
         logging.info(f"Visualization folder path: {self.path}")
 
         super().__init__(params)
