@@ -41,9 +41,9 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         )
         root = params.get("root", _root)
         assert os.path.isdir(root)  # Root must be an existing path
-        path = root + params.get("folder_name", "biot_contact_mechanics_viz")
-        params["folder_name"] = path
-        logging.info(f"Visualization folder path: {path}")
+        self.path = root + params.get("folder_name", "biot_contact_mechanics_viz")
+        params["folder_name"] = self.path
+        logging.info(f"Visualization folder path: {self.path}")
 
         super().__init__(params)
         self.viz = None
@@ -116,7 +116,8 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
                 path="linux",
                 domain=self.box,
             )
-            self.gb = network.mesh(mesh_args=self.mesh_args)
+            path = f"{self.path}/gmsh_frac_file"
+            self.gb = network.mesh(mesh_args=self.mesh_args, file_name=path)
             pp.contact_conditions.set_projections(self.gb)
             self.Nd = self.gb.dim_max()
 
