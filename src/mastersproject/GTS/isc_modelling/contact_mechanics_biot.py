@@ -19,6 +19,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         folder_name : str
             absolute path to storage folder
             Stored in self.viz_folder_name
+            and in self.folder_name
         kwargs
             time_step : float : Default = 1
                 size of a time step (post-scaled to self.length_scale ** 2)
@@ -26,6 +27,10 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
                 Total number of time steps
             data_path : str
                 path to isc_data: path/to/GTS/01BasicInputData
+            shearzone_names : list[str]
+                which shear-zones to mesh
+            box : dict[str, int]
+                bounding box of domain.
         """
         self.name = "contact mechanics biot on ISC dataset"
         logging.info(f"Running: {self.name}")
@@ -37,6 +42,8 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         params = {'folder_name': folder_name}
 
         super().__init__(params)
+
+        # Root name of solution files
         self.file_name = 'main_run'
 
         # Time
@@ -494,7 +501,6 @@ def run_model(
 
     model.prepare_simulation()
     model.set_viz()  # Overwrite the viz created in pp.contact_mechanics_biot at prepare_simulation()
-    time_steps = model.time_steps_array
 
     # breakpoint()
     print("Starting simulation...")
