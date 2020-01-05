@@ -108,7 +108,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
                 path="linux",
                 domain=self.box,
             )
-            path = f"{self.path}/gmsh_frac_file"
+            path = f"{self.viz_folder_name}/gmsh_frac_file"
             self.gb = network.mesh(mesh_args=self.mesh_args, file_name=path)
             pp.contact_conditions.set_projections(self.gb)
             self.Nd = self.gb.dim_max()
@@ -291,11 +291,115 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
     def set_viz(self):
         """ Set exporter for visualization """
         self.viz = pp.Exporter(self.gb, name=self.file_name, folder=self.viz_folder_name)
+        # list of time steps to export with visualization.
+        self.export_times = []
+
+        self.u_exp = 'u_exp'
+        self.p_exp = 'p_exp'
+        self.export_fields = [
+            self.u_exp,
+            self.p_exp,
+            # 'traction_exp',
+        ]
 
     def export_step(self):
+        """
+        export_step also serves as a hack to update parameters without changing the biot
+        run method, since it is the only method of the setup class which is called at
+        (the end of) each time step.
+        """
+        if "exporter" not in self.__dict__:
+            self.set_viz()
+        for g, d in self.gb:
+            if g.dim == self.Nd:
+                u = d[pp.STATE][self.displacement_variable].reshape(
+                    (self.Nd, -1), order="F"
+                )
+                if g.dim == 3:
+                    d[pp.STATE][self.u_exp] = u * self.length_scale
+
+                else:
+                    d[pp.STATE][self.u_exp] = np.vstack(
+                        (u * self.length_scale, np.zeros(u.shape[1]))
+                    )
+                d[pp.STATE]["traction_exp"] = np.zeros(d[pp.STATE][self.u_exp].shape)
+            else:
+                g_h = self.gb.node_neighbors(g)[0]
+                assert g_h.dim == self.Nd
+                data_edge = self.gb.edge_props((g, g_h))
+                u_mortar_local = self.reconstruct_local_displacement_jump(data_edge)
+                traction = d[pp.STATE][self.contact_traction_variable].reshape(
+                    (self.Nd, -1), order="F"
+                )
+
+                if g.dim == 2:
+                    d[pp.STATE][self.u_exp] = u_mortar_local * self.length_scale
+                    d[pp.STATE]["traction_exp"] = traction
+                else:
+                    d[pp.STATE][self.u_exp] = np.vstack(
+                        (
+                            u_mortar_local * self.length_scale,
+                            np.zeros(u_mortar_local.shape[1]),
+                        )
+                    )
+            d[pp.STATE][self.p_exp] = d[pp.STATE][self.scalar_variable] * self.scalar_scale
+        self.exporter.write_vtk(self.export_fields, time_step=self.time)
+        self.export_times.append(self.time)
+        self.save_data()
+        self.adjust_time_step()
+        self.set_parameters()
+
+    def save_data(self):
+        n = self.n_frac
+        if "u_jumps_tangential" not in self.__dict__:
+            self.u_jumps_tangential = np.empty((1, n))
+            self.u_jumps_normal = np.empty((1, n))
+        tangential_u_jumps = np.zeros((1, n))
+        normal_u_jumps = np.zeros((1, n))
+        for g, d in self.gb:
+            if g.dim < self.Nd:
+                g_h = self.gb.node_neighbors(g)[0]
+                assert g_h.dim == self.Nd
+                data_edge = self.gb.edge_props((g, g_h))
+                u_mortar_local = self.reconstruct_local_displacement_jump(data_edge)
+                tangential_jump = np.linalg.norm(
+                    u_mortar_local[:-1] * self.length_scale, axis=0
+                )
+                normal_jump = u_mortar_local[-1] * self.length_scale
+                vol = np.sum(g.cell_volumes)
+                tangential_jump_norm = np.sqrt(np.sum(tangential_jump ** 2 * g.cell_volumes)) / vol
+                normal_jump_norm = (
+                    np.sqrt(np.sum(normal_jump ** 2 * g.cell_volumes)) / vol
+                )
+                tangential_u_jumps[0, g.frac_num] = tangential_jump_norm
+                normal_u_jumps[0, g.frac_num] = normal_jump_norm
+
+        self.u_jumps_tangential = np.concatenate((self.u_jumps_tangential, tangential_u_jumps))
+        self.u_jumps_normal = np.concatenate((self.u_jumps_normal, normal_u_jumps))
+
+    def _export_step(self):
         """ Implementation of export step"""
-        export_fields = [self.displacement_variable + "_", self.scalar_variable]
-        self.viz.write_vtk(export_fields, time_step=self.current_step)
+
+        # Get fracture grids:
+        # Set zero values there to facilitate export.
+        frac_dims = [1, 2]
+        for dim in frac_dims:
+            gd_list = self.gb.grids_of_dimension(dim)
+            for g in gd_list:
+                data = self.gb.node_props(g)
+                data[pp.STATE][self.u_exp] = np.zeros((3, g.num_cells))
+
+        # Get the 3D data.
+        g3 = self.gb.grids_of_dimension(3)[0]
+        d3 = self.gb.node_props(g3)
+
+        # Get the state, transform it, and save to another state variable
+        u_exp = d3[pp.STATE][self.displacement_variable]
+        d3[pp.STATE][self.u_exp] = np.reshape(np.copy(u_exp), newshape=(g3.dim, g3.num_cells), order="F")
+
+        # Write step
+        self.viz.write_vtk(self.export_fields, time_step=self.time)
+        self.export_times.append(self.time)
 
     def export_pvd(self):
         """ Implementation of export pvd"""
