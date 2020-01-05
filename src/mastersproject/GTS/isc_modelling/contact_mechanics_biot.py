@@ -40,7 +40,11 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.file_name = 'main_run'
 
         # Time
-        self._set_time_parameters(**kwargs)
+        self._set_time_parameters()
+
+        # Scaling coefficients
+        # self.scalar_scale = 10 * pp.GIGA
+        # self.length_scale = 50
 
         # Grid
         self.gb = None
@@ -298,13 +302,16 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         num_steps = np.arange(len(self.time_steps_array))
         self.viz.write_pvd(num_steps)
 
-    def _set_time_parameters(self, **kwargs):
+    def _set_time_parameters(self):
         """
         Set time parameters
 
         """
-        num_steps = kwargs.get("num_steps", 2)
-        self.time_step = kwargs.get("time_step", 1) * self.length_scale ** 2
+        self.time = 0
+        self.time_step = 6 * pp.HOUR
+
+        num_steps = 2
+        self.time_step = 1 * self.length_scale ** 2
         self.end_time = self.time_step * (num_steps - 1)
         self.time_steps_array = np.linspace(start=0, stop=self.end_time, num=num_steps)
         self.step_count = np.arange(len(self.time_steps_array))
