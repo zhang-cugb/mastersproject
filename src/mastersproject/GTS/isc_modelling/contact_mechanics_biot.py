@@ -299,8 +299,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
 
     def export_pvd(self):
         """ Implementation of export pvd"""
-        num_steps = np.arange(len(self.time_steps_array))
-        self.viz.write_pvd(num_steps)
+        self.viz.write_pvd(self.export_times)
 
     def _set_time_parameters(self):
         """
@@ -309,6 +308,9 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         """
         self.time = 0
         self.time_step = 6 * pp.HOUR
+        self.end_time = 2 * pp.DAY
+        # Set initial time step
+        self.initial_time_step = self.time_step
 
         num_steps = 2
         self.time_step = 1 * self.length_scale ** 2
@@ -316,6 +318,41 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.time_steps_array = np.linspace(start=0, stop=self.end_time, num=num_steps)
         self.step_count = np.arange(len(self.time_steps_array))
         self.current_step = self.step_count[0]
+
+
+def prepare_model(
+        viz_folder_name: str = None
+):
+    """Prepare the ContactMechanicsBiotISC solver for the porepy run_model method.
+
+     Parameters
+     viz_folder_name : str
+        Absolute path to storage folder.
+    """
+    if viz_folder_name is None:
+        viz_folder_name = (
+            "/home/haakon/mastersproject/src/mastersproject/GTS/isc_modelling/results/cm_biot_1"
+        )
+
+    # Define mesh sizes for grid generation.
+    mesh_size = 5  # .36
+    mesh_args = {
+        "mesh_size_frac": mesh_size,
+        "mesh_size_min": 0.1 * mesh_size,
+        "mesh_size_bound": 6 * mesh_size,
+    }
+
+    setup = ContactMechanicsBiotISC(
+        mesh_args=mesh_args,
+        folder_name=viz_folder_name
+    )
+
+    # Below is pasted the relevant parts of pp.run_time_dependent_model
+
+    # Assign parameters, variables and discretizations. Discretize time-indepedent terms
+    setup.prepare_simulation()
+    setup.set_viz()  # Overwrite the viz created in pp.contact_mechanics_biot at prepare_simulation()
+
 
 
 def run_model(
@@ -372,9 +409,18 @@ def run_model(
     g3 = model.gb.grids_of_dimension(3)[0]
     d3 = model.gb.node_props(g3)
     # Solve problem
-    for curr_step, step in enumerate(time_steps):
-        model.time = step
-        model.current_step = curr_step
+    errors = []
+    t_end = model.end_time
+    k = 0
+    while model.time < t_end:
+        model.time += model.time_step
+        k += 1
+        logging.debug(
+            f"\n Time step {k} at time {model.time:.1e} of {t_end:.1e} with time step {model.time_step:.1e}"
+        )
+
+        # Prepare for Newton
+
         x = model.assemble_and_solve_linear_system(tol)  # Solve time step
         # TODO: Overwrite method and save errors and iteration counter.
         model.after_newton_convergence(x, None, None)  # Distribute solution
