@@ -221,7 +221,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         flow_rate = self.source_flow_rate()
 
         # TODO: Ask if scalar source must be multiplied by time_step.
-        values = flow_rate * g.tags["well_cells"]  # * self.time_step
+        values = flow_rate * g.tags["well_cells"] * self.time_step
         return values
 
     def set_mu(self, g):
