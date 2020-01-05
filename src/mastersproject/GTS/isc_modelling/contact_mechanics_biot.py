@@ -75,6 +75,9 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         # TODO: Think of a good way to include ISCData in this class
         self.isc = gts.ISCData(path=kwargs.get("data_path", "linux"))
 
+        # Tag the well cells
+        self.well_cells()
+
     def create_grid(self, overwrite_grid=False):
         """ Create a GridBucket of a 3D domain with fractures
         defined by the ISC dataset.
@@ -155,33 +158,27 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         # Define boundary condition on faces
         return pp.BoundaryCondition(g, bottom_face, "dir")
 
-    def source_scalar(self, g: pp.Grid):
-        """ Well-bore source
-
-        This is an example implementation of a borehole-fracture source.
+    # TODO: Ask if this is correct? How to assign source flow rate?
+    #   borrowed from porepy-paper.
+    def source_flow_rate(self):
         """
+        Rate given in l/s = m^3/s e-3. Length scaling needed to convert from
+        the scaled length to m.
+        """
+        liters = 3
+        return liters * pp.MILLI * (pp.METER / self.length_scale) ** self.Nd
+
+    def well_cells(self):
+        """
+        Tag well cells with unity values, positive for injection cells and
+        negative for production cells.
+        """
+        df = self.isc.borehole_plane_intersection()
         # Borehole-shearzone intersection of interest
         bh_sz = self.source_scalar_borehole_shearzone
 
-        # Get name of grid
-        grid_name = self.gb.node_props(g, "name")
-
-        # 0-values for all non-2D grids
-        if grid_name is None:
-            return np.zeros(g.num_cells)
-
-        # Also 0-values for all 2D-grids except the 'S1_1' shear-zone.
-        if grid_name != bh_sz["shearzone"]:
-            return np.zeros(g.num_cells)
-
-        logging.info(f"Grid of name: {grid_name}, and dimension {g.dim}")
-        logging.info(f"Setting non-zero source for scalar variable")
-
-        # Get necessary data
-        df = self.isc.borehole_plane_intersection()
-
         _mask = (df.shearzone == bh_sz["shearzone"]) & (
-            df.borehole == bh_sz["borehole"]
+                df.borehole == bh_sz["borehole"]
         )
         result = df.loc[_mask, ("x_sz", "y_sz", "z_sz")]
         if result.empty:
@@ -190,13 +187,37 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         pts = result.to_numpy().T
         assert pts.shape[1] == 1, "Should only be one intersection"
 
-        # Find cell nearest the desired point.
-        ids, dsts = g.closest_cell(pts, return_distance=True)
-        logging.info(f"Closest cell found has distance: {dsts[0]:4f}")
 
-        # Set the source term.
-        values = np.zeros(g.num_cells)
-        values[ids] = 10
+        for g, d in self.gb:
+            tags = np.zeros(g.num_cells)
+
+            # Get name of grid
+            grid_name = self.gb.node_props(g, "name")
+
+            # We only tag cells in the desired fracture
+            if grid_name == bh_sz['shearzone']:
+
+                logging.info(f"Grid of name: {grid_name}, and dimension {g.dim}")
+                logging.info(f"Setting non-zero source for scalar variable")
+
+                ids, dsts = g.closest_cell(pts, return_distance=True)
+                logging.info(f"Closest cell found has distance: {dsts[0]:4f}")
+
+                # Tag the injection cell
+                tags[ids] = 1
+
+            g.tags["well_cells"] = tags
+            pp.set_state(d, {"well": tags.copy()})
+
+    def source_scalar(self, g: pp.Grid):
+        """ Well-bore source
+
+        This is an example implementation of a borehole-fracture source.
+        """
+        flow_rate = self.source_flow_rate()
+
+        # TODO: Ask if scalar source must be multiplied by time_step.
+        values = flow_rate * g.tags["well_cells"]  # * self.time_step
         return values
 
     def set_mu(self, g):
