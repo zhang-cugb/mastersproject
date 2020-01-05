@@ -10,16 +10,15 @@ import GTS as gts
 
 
 class ContactMechanicsBiotISC(ContactMechanicsBiot):
-    def __init__(self, params=None, **kwargs):
+    def __init__(self, mesh_args, folder_name, **kwargs):
         """ Initialize the Contact Mechanics Biot
 
         Parameters
-        params : dict : Optional
-            folder_name : str
-                name of storage folder, relative to root.
-            root : str
-                root to folder name (path must exist)
-                Default: /home/haakon/mastersproject/src/mastersproject/GTS/isc_modelling/results/
+        mesh_args : dict
+            Mesh arguments
+        folder_name : str
+            absolute path to storage folder
+            Stored in self.viz_folder_name
         kwargs
             time_step : float : Default = 1
                 size of a time step (post-scaled to self.length_scale ** 2)
@@ -31,31 +30,17 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.name = "contact mechanics biot on ISC dataset"
         logging.info(f"Running: {self.name}")
 
-        # Specify absolute visualization storage path
-        if params is None:
-            params = {}
-        assert isinstance(params, dict), "Params should be a dictionary."
-        _root = (
-            "/home/haakon/mastersproject/src/mastersproject/GTS/isc_modelling/results/"
-        )
-        root = params.get("root", _root)
-        assert os.path.isdir(root)  # Root must be an existing path
-        self.path = root + params.get("folder_name", "biot_contact_mechanics_viz")
-        params["folder_name"] = self.path
-        if not os.path.exists(self.path):
-            os.makedirs(self.path, exist_ok=True)
-        logging.info(f"Visualization folder path: {self.path}")
+        if not os.path.exists(folder_name):
+            os.makedirs(folder_name, exist_ok=True)
+        logging.info(f"Visualization folder path: {folder_name}")
+
+        params = {'folder_name': folder_name}
 
         super().__init__(params)
-        self.viz = None
+        self.file_name = 'main_run'
 
         # Time
-        num_steps = kwargs.get("num_steps", 2)
-        self.time_step = kwargs.get("time_step", 1) * self.length_scale ** 2
-        self.end_time = self.time_step * (num_steps - 1)
-        self.time_steps_array = np.linspace(start=0, stop=self.end_time, num=num_steps)
-        self.step_count = np.arange(len(self.time_steps_array))
-        self.current_step = self.step_count[0]
+        self._set_time_parameters(**kwargs)
 
         # Grid
         self.gb = None
@@ -74,8 +59,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.shearzone_names = kwargs.get("shearzone_names", default_shearzone_set)
 
         # Mesh size arguments
-        default_mesh_args = {"mesh_size_frac": 10, "mesh_size_min": 10}
-        self.mesh_args = kwargs.get("mesh_args", default_mesh_args)
+        self.mesh_args = mesh_args
 
         # Bounding box of the domain
         default_box = {
@@ -279,24 +263,13 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
             mg = d["mortar_grid"]
             pp.initialize_data(mg, d, self.mechanics_parameter_key)
 
-    def init_viz(self, file_name="test_biot", overwrite=False):
-        """ Initialize visualization.
-        Will only create a new object if none exists.
-        Alternatively, the existing exporter can be overwritten using 'overwrite'.
-
-        """
-        if (self.viz is None) or overwrite:
-            # g3 = self.gb.grids_of_dimension(self.gb.dim_max())[0]
-            self.viz = pp.Exporter(self.gb, name=file_name, folder=self.viz_folder_name)
+    def set_viz(self):
+        """ Set exporter for visualization """
+        self.viz = pp.Exporter(self.gb, name=self.file_name, folder=self.viz_folder_name)
 
     def export_step(self):
         """ Implementation of export step"""
-        export_fields = [self.displacement_variable + "_", self.scalar_variable]  # self.scalar_variable
-        # Test out: Export a single grid.
-        # g3 = self.gb.grids_of_dimension(self.gb.dim_max())[0]
-        # data = self.gb.node_props(g3)
-        # export_data = data[pp.STATE][self.displacement_variable]
-        # export_fields = {self.displacement_variable: export_data}
+        export_fields = [self.displacement_variable + "_", self.scalar_variable]
         self.viz.write_vtk(export_fields, time_step=self.current_step)
 
     def export_pvd(self):
@@ -304,10 +277,22 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         num_steps = np.arange(len(self.time_steps_array))
         self.viz.write_pvd(num_steps)
 
+    def _set_time_parameters(self, **kwargs):
+        """
+        Set time parameters
+
+        """
+        num_steps = kwargs.get("num_steps", 2)
+        self.time_step = kwargs.get("time_step", 1) * self.length_scale ** 2
+        self.end_time = self.time_step * (num_steps - 1)
+        self.time_steps_array = np.linspace(start=0, stop=self.end_time, num=num_steps)
+        self.step_count = np.arange(len(self.time_steps_array))
+        self.current_step = self.step_count[0]
+
 
 def run_model(
         model: ContactMechanicsBiotISC = None,
-        viz_folder_name: str = "biot",
+        viz_folder_name: str = None,
         file_name: str = "test_biot"):
     """ Set up and run the biot model.
 
@@ -315,18 +300,31 @@ def run_model(
     model : ContactMechanicsBiotISC, Optional
         input model
     viz_folder_name : str
-        Path to storage folder.
+        Absolute path to storage folder.
     file_name : str
         root name of output files
     """
+    if viz_folder_name is None:
+        viz_folder_name = (
+            "/home/haakon/mastersproject/src/mastersproject/GTS/isc_modelling/results/cm_biot_1"
+        )
+
+    # Define mesh sizes for grid generation.
+    mesh_size = 5  # .36
+    mesh_args = {
+        "mesh_size_frac": mesh_size,
+        "mesh_size_min": 0.1 * mesh_size,
+        "mesh_size_bound": 6 * mesh_size,
+    }
+
     if model is None:
-        params = {"folder_name": viz_folder_name}
-        model = ContactMechanicsBiotISC(params=params)
+        model = ContactMechanicsBiotISC(
+            mesh_args=mesh_args,
+            folder_name=viz_folder_name
+        )
+
     model.prepare_simulation()
-    model.init_viz(
-        file_name=file_name,
-        overwrite=True
-    )  # Overwrite the viz created in pp.contact_mechanics_biot at prepare_simulation()
+    model.set_viz()  # Overwrite the viz created in pp.contact_mechanics_biot at prepare_simulation()
     time_steps = model.time_steps_array
 
     # breakpoint()
