@@ -86,9 +86,6 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         # TODO: Think of a good way to include ISCData in this class
         self.isc = gts.ISCData(path=kwargs.get("data_path", "linux"))
 
-        # Tag the well cells
-        self.well_cells()
-
     def create_grid(self, overwrite_grid=False):
         """ Create a GridBucket of a 3D domain with fractures
         defined by the ISC dataset.
@@ -449,9 +446,10 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
 
 
         ONLY CHANGE FROM PARENT:
-        - Set self.viz with custome method.
+        - Set self.viz with custom method.
         """
         self.create_grid()
+        self.well_cells()  # Tag the well cells
         self.Nd = self.gb.dim_max()
         self.set_parameters()
         self.assign_variables()
