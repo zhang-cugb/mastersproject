@@ -437,12 +437,16 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         # Set initial time step
         self.initial_time_step = self.time_step
 
-        num_steps = 2
-        self.time_step = 1 * self.length_scale ** 2
-        self.end_time = self.time_step * (num_steps - 1)
-        self.time_steps_array = np.linspace(start=0, stop=self.end_time, num=num_steps)
-        self.step_count = np.arange(len(self.time_steps_array))
-        self.current_step = self.step_count[0]
+        # num_steps = 2
+        # self.time_step = 1 * self.length_scale ** 2
+        # self.end_time = self.time_step * (num_steps - 1)
+        # self.time_steps_array = np.linspace(start=0, stop=self.end_time, num=num_steps)
+        # self.step_count = np.arange(len(self.time_steps_array))
+        # self.current_step = self.step_count[0]
+
+    def prepare_simulation(self):
+        """ Is run prior to a time-stepping scheme. Use this to initialize
+        discretizations, linear solvers etc.
 
 
         ONLY CHANGE FROM PARENT:
