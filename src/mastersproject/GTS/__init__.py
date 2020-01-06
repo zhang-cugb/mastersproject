@@ -24,3 +24,4 @@ from GTS.isc_modelling.mechanics import run_model as run_model_mechanics
 # Contact Mechanics Biot
 from GTS.isc_modelling.contact_mechanics_biot import run_model as run_model_cm_biot
 from GTS.isc_modelling.contact_mechanics_biot import ContactMechanicsBiotISC
+from GTS.isc_modelling.contact_mechanics_biot import main
