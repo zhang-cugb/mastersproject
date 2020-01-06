@@ -299,15 +299,15 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.export_times = []
 
         self.u_exp = 'u_exp'
-        self.p_exp = 'p_exp'
+        self.p_exp = 'p'  #'p_exp'
         self.traction_exp = 'traction_exp'
         self.export_fields = [
             self.u_exp,
             self.p_exp,
-            self.traction_exp,
+            # self.traction_exp,
         ]
 
-    def export_step(self):
+    def _export_step(self):
         """
         export_step also serves as a hack to update parameters without changing the biot
         run method, since it is the only method of the setup class which is called at
@@ -382,7 +382,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.u_jumps_tangential = np.concatenate((self.u_jumps_tangential, tangential_u_jumps))
         self.u_jumps_normal = np.concatenate((self.u_jumps_normal, normal_u_jumps))
 
-    def _export_step(self):
+    def export_step(self):
         """ Implementation of export step"""
 
         # Get fracture grids:
@@ -483,11 +483,16 @@ def main(
         )
 
     # Define mesh sizes for grid generation.
-    mesh_size = 5  # .36
+    mesh_size = 10  # .36
+    #mesh_args = {
+    #    "mesh_size_frac": mesh_size,
+    #    "mesh_size_min": 0.1 * mesh_size,
+    #    "mesh_size_bound": 6 * mesh_size,
+    #}
     mesh_args = {
         "mesh_size_frac": mesh_size,
-        "mesh_size_min": 0.1 * mesh_size,
-        "mesh_size_bound": 6 * mesh_size,
+        "mesh_size_min": mesh_size,
+        "mesh_size_bound": mesh_size,
     }
 
     setup = ContactMechanicsBiotISC(
@@ -498,7 +503,7 @@ def main(
     # SOLVE THE PROBLEM
     default_options = {  # Parameters for Newton solver.
         "max_iterations": 1,
-        "convergence_tol": 1e-10,
+        "convergence_tol": 1e5,  # 1e-10,
         "divergence_tol": 1e5,
     }
     pp.run_time_dependent_model(setup=setup, params=default_options)
