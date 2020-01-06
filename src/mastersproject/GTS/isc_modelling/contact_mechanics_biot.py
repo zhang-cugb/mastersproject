@@ -412,6 +412,20 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         """ Implementation of export pvd"""
         self.viz.write_pvd(self.export_times)
 
+    def before_newton_loop(self):
+        """ Will be run before entering a Newton loop.
+        E.g.
+           Discretize time-dependent quantities etc.
+           Update time-dependent parameters (captured by assembly).
+        """
+        self.set_parameters()
+        # The following is expensive, as it includes Biot. Consider making a custom  method
+        # discretizing only the term you need!
+
+        # TODO: Discretize only the terms you need.
+        self.discretize()
+        pass
+
     def _set_time_parameters(self):
         """
         Set time parameters
