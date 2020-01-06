@@ -303,10 +303,11 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
 
         self.u_exp = 'u_exp'
         self.p_exp = 'p_exp'
+        self.traction_exp = 'traction_exp'
         self.export_fields = [
             self.u_exp,
             self.p_exp,
-            # 'traction_exp',
+            self.traction_exp,
         ]
 
     def export_step(self):
@@ -341,7 +342,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
 
                 if g.dim == 2:
                     d[pp.STATE][self.u_exp] = u_mortar_local * self.length_scale
-                    d[pp.STATE]["traction_exp"] = traction
+                    d[pp.STATE][self.traction_exp] = traction
                 else:
                     d[pp.STATE][self.u_exp] = np.vstack(
                         (
