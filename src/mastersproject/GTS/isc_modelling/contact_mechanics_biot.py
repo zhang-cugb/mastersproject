@@ -424,7 +424,12 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
 
         # TODO: Discretize only the terms you need.
         self.discretize()
-        pass
+
+    def after_newton_convergence(self, solution, errors, iteration_counter):
+        """ Overwrite from parent to export solution steps."""
+        self.assembler.distribute_variable(solution)
+        self.save_mechanical_bc_values()
+        self.export_step()
 
     def _set_time_parameters(self):
         """
