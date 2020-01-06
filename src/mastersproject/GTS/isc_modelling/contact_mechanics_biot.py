@@ -445,7 +445,29 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.current_step = self.step_count[0]
 
 
-def prepare_model(
+        ONLY CHANGE FROM PARENT:
+        - Set self.viz with custome method.
+        """
+        self.create_grid()
+        self.Nd = self.gb.dim_max()
+        self.set_parameters()
+        self.assign_variables()
+        self.assign_discretizations()
+        self.initial_condition()
+        self.discretize()
+        self.initialize_linear_solver()
+
+        self.set_viz()
+
+    def _is_nonlinear_problem(self):
+        """
+        OVERWRITTEN FROM PARENT:
+        This problem is non-linear, so return True.
+        """
+        return True
+
+
+def main(
         viz_folder_name: str = None
 ):
     """Prepare the ContactMechanicsBiotISC solver for the porepy run_model method.
