@@ -439,16 +439,9 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         """
         self.time = 0
         self.time_step = 6 * pp.HOUR
-        self.end_time = 2 * pp.DAY
+        self.end_time = 1 * pp.DAY
         # Set initial time step
         self.initial_time_step = self.time_step
-
-        # num_steps = 2
-        # self.time_step = 1 * self.length_scale ** 2
-        # self.end_time = self.time_step * (num_steps - 1)
-        # self.time_steps_array = np.linspace(start=0, stop=self.end_time, num=num_steps)
-        # self.step_count = np.arange(len(self.time_steps_array))
-        # self.current_step = self.step_count[0]
 
     def prepare_simulation(self):
         """ Is run prior to a time-stepping scheme. Use this to initialize
@@ -488,7 +481,7 @@ def main(
     """
     if viz_folder_name is None:
         viz_folder_name = (
-            "/home/haakon/mastersproject/src/mastersproject/GTS/isc_modelling/results/cm_biot_1"
+            "/home/haakon/mastersproject/src/mastersproject/GTS/isc_modelling/results/non_lin_cm_biot_1"
         )
 
     # Define mesh sizes for grid generation.
@@ -506,7 +499,7 @@ def main(
 
     # SOLVE THE PROBLEM
     default_options = {  # Parameters for Newton solver.
-        "max_iterations": 10,
+        "max_iterations": 1,
         "convergence_tol": 1e-10,
         "divergence_tol": 1e5,
     }
