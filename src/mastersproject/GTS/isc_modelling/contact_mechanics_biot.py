@@ -498,11 +498,16 @@ def main(
         folder_name=viz_folder_name
     )
 
-    # Below is pasted the relevant parts of pp.run_time_dependent_model
+    # SOLVE THE PROBLEM
+    default_options = {  # Parameters for Newton solver.
+        "max_iterations": 10,
+        "convergence_tol": 1e-10,
+        "divergence_tol": 1e5,
+    }
+    pp.run_time_dependent_model(setup=setup, params=default_options)
 
-    # Assign parameters, variables and discretizations. Discretize time-indepedent terms
-    setup.prepare_simulation()
-    setup.set_viz()  # Overwrite the viz created in pp.contact_mechanics_biot at prepare_simulation()
+    return setup
+
 
 
 
