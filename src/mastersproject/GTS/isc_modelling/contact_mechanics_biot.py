@@ -353,7 +353,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.exporter.write_vtk(self.export_fields, time_step=self.time)
         self.export_times.append(self.time)
         self.save_data()
-        self.adjust_time_step()
+        # self.adjust_time_step()
         self.set_parameters()
 
     def save_data(self):
