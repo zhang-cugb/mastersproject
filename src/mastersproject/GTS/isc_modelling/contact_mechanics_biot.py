@@ -511,6 +511,8 @@ def main(
     }
     pp.run_time_dependent_model(setup=setup, params=default_options)
 
+    setup.export_pvd()
+
     return setup
 
 
