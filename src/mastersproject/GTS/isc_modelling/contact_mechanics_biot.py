@@ -188,7 +188,9 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         )
         bc_values = np.zeros((g.dim, g.num_faces))
         # TODO: Compute the actual (unperturbed) stress tensor
-        we, sn, bt = 9.2 * pp.MEGA * pp.PASCAL, 8.7 * pp.MEGA * pp.PASCAL, 13.1 * pp.MEGA * pp.PASCAL
+        # we, sn, bt = 9.2 * pp.MEGA * pp.PASCAL, 8.7 * pp.MEGA * pp.PASCAL, 13.1 * pp.MEGA * pp.PASCAL
+        #we, sn, bt = 7 / 8, 5 / 4, 1
+        we = sn = bt = 9 * pp.MEGA * pp.PASCAL
         bc_values[0, west] = (we * gravity[west]) * A[west]
         bc_values[0, east] = -(we * gravity[east]) * A[east]
         bc_values[1, south] = (sn * gravity[south]) * A[south]
@@ -311,7 +313,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
                           'S3_2': 159 * pp.MILLI * pp.METER,
                           None: 1,  # 3D matrix
                           }
-        apertures *= mean_apertures[shearzone]
+        apertures *= mean_apertures[shearzone] / self.length_scale
         return apertures
 
     def set_permeability_from_aperture(self):
@@ -367,11 +369,24 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         Credits: PorePy paper
         """
         self.rock = pp.Granite()
+
+        # Lame parameters
+        self.rock.YOUNG_MODULUS = 20.0 * pp.GIGA * pp.PASCAL
+        self.rock.POISSON_RATIO = 0.33
+        def lam_from(E, v):
+            return E*v / ((1 + v) * (1 - 2*v))
+        def mu_from(E, v):
+            return E / (2 * (1 + v))
+        self.rock.LAMBDA = lam_from(self.rock.YOUNG_MODULUS, self.rock.POISSON_RATIO)
+        self.rock.MU = mu_from(self.rock.YOUNG_MODULUS, self.rock.POISSON_RATIO)
+
+
         self.rock.FRICTION_COEFFICIENT = 0.5
+        self.rock.POROSITY = 0.7 / 100
+
         self.fluid = pp.Water()
-        # The permeability may be interpreted as some sort of upscaled effective
-        # value accounting for smaller fractures
-        self.rock.PERMEABILITY = 3e-16
+        # The permeability is for the intact rock
+        self.rock.PERMEABILITY = 5e-19
         # Initial hydraulic aperture in m
         self.initial_aperture = 1e-3 / self.length_scale
 
@@ -382,7 +397,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         stress = mu * trace(eps) + 2 * lam * eps
         """
         # TODO: Custom mu
-        return np.ones(g.num_cells)
+        return np.ones(g.num_cells) * self.rock.MU
 
     def set_lam(self, g):
         """ Set lambda
@@ -391,7 +406,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         stress = mu * trace(eps) + 2 * lam * eps
         """
         # TODO: Custom lambda
-        return np.ones(g.num_cells)
+        return np.ones(g.num_cells) * self.rock.LAMBDA
 
     def set_mechanics_parameters(self):
         """
