@@ -89,6 +89,9 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         # Tag the well cells
         self.well_cells()
 
+        # Basic parameters
+        self.set_rock_and_fluid()
+
     def create_grid(self, overwrite_grid=False):
         """ Create a GridBucket of a 3D domain with fractures
         defined by the ISC dataset.
@@ -612,6 +615,13 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.initialize_linear_solver()
 
         self.set_viz()
+
+    def _depth(self, coords):
+        """
+        Unscaled depth. We center the domain at 480m below the surface.
+        (See Krietsch et al, 2018a)
+        """
+        return 480.0 * pp.METER - self.length_scale * coords[2]
 
     def _is_nonlinear_problem(self):
         """
