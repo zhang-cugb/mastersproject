@@ -86,9 +86,6 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         # TODO: Think of a good way to include ISCData in this class
         self.isc = gts.ISCData(path=kwargs.get("data_path", "linux"))
 
-        # Tag the well cells
-        self.well_cells()
-
         # Basic parameters
         self.set_rock_and_fluid()
 
@@ -585,8 +582,8 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
 
         """
         self.time = 0
-        self.time_step = 6 * pp.HOUR
-        self.end_time = 2 * pp.DAY
+        self.time_step = 30 * pp.MINUTE
+        self.end_time = 2 * pp.HOUR
         # Set initial time step
         self.initial_time_step = self.time_step
 
@@ -607,6 +604,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         """
         self.create_grid()
         self.Nd = self.gb.dim_max()
+        self.well_cells()  # Tag the well cells
         self.set_parameters()
         self.assign_variables()
         self.assign_discretizations()
@@ -660,8 +658,8 @@ def main(
 
     # SOLVE THE PROBLEM
     default_options = {  # Parameters for Newton solver.
-        "max_iterations": 10,
-        "convergence_tol": 1e-10,
+        "max_iterations": 2,
+        "convergence_tol": 1,
         "divergence_tol": 1e5,
     }
     pp.run_time_dependent_model(setup=setup, params=default_options)
