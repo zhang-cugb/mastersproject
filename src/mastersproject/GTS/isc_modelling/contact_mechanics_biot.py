@@ -446,15 +446,15 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.export_times = []
 
         self.u_exp = 'u_exp'
-        self.p_exp = 'p_exp'
+        self.p_exp = 'p'
         self.traction_exp = 'traction_exp'
         self.export_fields = [
             self.u_exp,
             self.p_exp,
-            self.traction_exp,
+            #self.traction_exp,
         ]
 
-    def export_step(self):
+    def _export_step(self):
         """
         export_step also serves as a hack to update parameters without changing the biot
         run method, since it is the only method of the setup class which is called at
@@ -477,25 +477,25 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
                 d[pp.STATE]["traction_exp"] = np.zeros(d[pp.STATE][self.u_exp].shape)
             else:
                 g_h = self.gb.node_neighbors(g)[0]
-                assert g_h.dim == self.Nd
-                data_edge = self.gb.edge_props((g, g_h))
-                u_mortar_local = self.reconstruct_local_displacement_jump(data_edge)
-                traction = d[pp.STATE][self.contact_traction_variable].reshape(
-                    (self.Nd, -1), order="F"
-                )
-
-                if g.dim == 2:
-                    d[pp.STATE][self.u_exp] = u_mortar_local * self.length_scale
-                    d[pp.STATE][self.traction_exp] = traction
-                else:
-                    d[pp.STATE][self.u_exp] = np.vstack(
-                        (
-                            u_mortar_local * self.length_scale,
-                            np.zeros(u_mortar_local.shape[1]),
-                        )
+                if g_h.dim == self.Nd:
+                    data_edge = self.gb .edge_props((g, g_h))
+                    u_mortar_local = self.reconstruct_local_displacement_jump(data_edge)
+                    traction = d[pp.STATE][self.contact_traction_variable].reshape(
+                        (self.Nd, -1), order="F"
                     )
+
+                    if g.dim == 2:
+                        d[pp.STATE][self.u_exp] = u_mortar_local * self.length_scale
+                        d[pp.STATE][self.traction_exp] = traction
+                    else:
+                        d[pp.STATE][self.u_exp] = np.vstack(
+                            (
+                                u_mortar_local * self.length_scale,
+                                np.zeros(u_mortar_local.shape[1]),
+                            )
+                        )
             d[pp.STATE][self.p_exp] = d[pp.STATE][self.scalar_variable] * self.scalar_scale
-        self.exporter.write_vtk(self.export_fields, time_step=self.time)
+        self.viz.write_vtk(self.export_fields, time_step=self.time)
         self.export_times.append(self.time)
         self.save_data()
         # self.adjust_time_step()
@@ -529,7 +529,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.u_jumps_tangential = np.concatenate((self.u_jumps_tangential, tangential_u_jumps))
         self.u_jumps_normal = np.concatenate((self.u_jumps_normal, normal_u_jumps))
 
-    def _export_step(self):
+    def export_step(self):
         """ Implementation of export step"""
 
         # Get fracture grids:
