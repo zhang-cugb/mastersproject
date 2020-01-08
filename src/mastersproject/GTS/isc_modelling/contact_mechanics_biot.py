@@ -138,6 +138,25 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
             for i, sz in enumerate(self.shearzone_names):
                 assert self.gb.node_props(g[i], "name") is not None
 
+    def faces_to_fix(self, g):
+        """
+        Identify three boundary faces to fix (u=0). This should allow us to assign
+        Neumann "background stress" conditions on the rest of the boundary faces.
+        Credits: PorePy paper
+        """
+        all_bf, *_ = self.domain_boundary_sides(g)
+        point = np.array(
+            [
+                [(self.box["xmin"] + self.box["xmax"]) / 2],
+                [(self.box["ymin"] + self.box["ymax"]) / 2],
+                [self.box["zmin"]],
+            ]
+        )
+        distances = pp.distances.point_pointset(point, g.face_centers[:, all_bf])
+        indexes = np.argsort(distances)
+        faces = all_bf[indexes[: self.Nd]]
+        return faces
+
     def bc_type_mechanics(self, g):
         """
         We set Neumann values imitating an anisotropic background stress regime on all
@@ -184,27 +203,24 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         return bc_values.ravel("F")
 
     def bc_values_scalar(self, g):
-        """ Set boundary values to 1 (Neumann) on top face.
-        0 (Dirichlet) on bottom face.
-        0 (Neumann) otherwise.
+        """ Hydrostatic flow values
+        credit: porepy paper
         """
         # TODO: Hydrostatic scalar BC's (values).
-        all_bf, east, west, north, south, top, bottom = self.domain_boundary_sides(g)
-        top_face = np.nonzero(top)[0]
-        bc_val = np.zeros(g.num_faces)
-        bc_val[top_face] = 1
-        return bc_val
+        all_bf, *_= self.domain_boundary_sides(g)
+        bc_values = np.zeros(g.num_faces)
+        depth = self._depth(g.face_centers[:, all_bf])
+        bc_values[all_bf] = self.fluid.hydrostatic_pressure(depth) / self.scalar_scale
+        return bc_values
 
     def bc_type_scalar(self, g):
-        """ Set boundary conditions dirichlet on bottom face.
-        Neumann otherwise.
+        """ Known boundary conditions (Dirichlet)
         """
         # TODO: Hydrostatic scalar BC's (type).
         # Define boundary regions
-        all_bf, east, west, north, south, top, bottom = self.domain_boundary_sides(g)
-        bottom_face = np.nonzero(bottom)[0]
+        all_bf, *_ = self.domain_boundary_sides(g)
         # Define boundary condition on faces
-        return pp.BoundaryCondition(g, bottom_face, "dir")
+        return pp.BoundaryCondition(g, all_bf, "dir")
 
     # TODO: Ask if this is correct? How to assign source flow rate?
     #   borrowed from porepy-paper.
@@ -213,8 +229,8 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         Rate given in l/s = m^3/s e-3. Length scaling needed to convert from
         the scaled length to m.
         """
-        liters = 3
-        return liters * pp.MILLI * (pp.METER / self.length_scale) ** self.Nd
+        liters = 10
+        return liters * pp.MILLI * (pp.METER / self.length_scale) ** self.Nd / pp.MINUTE
 
     def well_cells(self):
         """
@@ -267,6 +283,97 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         # TODO: Ask if scalar source must be multiplied by time_step.
         values = flow_rate * g.tags["well_cells"] * self.time_step
         return values
+
+    def source_mechanics(self, g):
+        """
+        Gravity term.
+        Credits: PorePy paper
+        """
+        values = np.zeros((self.Nd, g.num_cells))
+        values[2] = (
+                pp.GRAVITY_ACCELERATION
+                * self.rock.DENSITY
+                * g.cell_volumes
+                * self.length_scale
+                / self.scalar_scale
+        )
+        return values.ravel("F")
+
+    def compute_aperture(self, g):
+        """ Compute aperture"""
+        apertures = np.ones(g.num_cells)
+        shearzone = self.gb.node_props(g, 'name')
+        # The mean measured aperture per shear-zone.
+        mean_apertures = {'S1_1': 1026 * pp.MILLI * pp.METER,
+                          'S1_2': 909.5 * pp.MILLI * pp.METER,
+                          'S1_3': 1634 * pp.MILLI * pp.METER,
+                          'S3_1': 180 * pp.MILLI * pp.METER,
+                          'S3_2': 159 * pp.MILLI * pp.METER,
+                          None: 1,  # 3D matrix
+                          }
+        apertures *= mean_apertures[shearzone]
+        return apertures
+
+    def set_permeability_from_aperture(self):
+        """
+        Cubic law in fractures, rock permeability in the matrix.
+        Credits: PorePy paper
+        """
+        viscosity = self.fluid.dynamic_viscosity() / self.scalar_scale
+        gb = self.gb
+        for g, d in gb:
+            if g.dim < self.Nd:
+                # Use cubic law in fractures
+                apertures = self.compute_aperture(g)
+                apertures_unscaled = apertures * self.length_scale
+                k = np.power(apertures_unscaled, 2) / 12
+                # Multiply with the cross-sectional area, which equals the apertures
+                # for 2d fractures in 3d
+                k *= apertures
+                kxx = k / viscosity / self.length_scale ** 2
+            else:
+                # Use the rock permeability in the matrix
+                kxx = (
+                    self.rock.PERMEABILITY
+                    / viscosity
+                    * np.ones(g.num_cells)
+                    / self.length_scale ** 2
+                )
+
+            K = pp.SecondOrderTensor(kxx)
+            d[pp.PARAMETERS][self.scalar_parameter_key]["second_order_tensor"] = K
+
+        # Normal permeability inherited from the neighboring fracture g_l
+        for e, d in gb.edges():
+            mg = d["mortar_grid"]
+            g_l, _ = gb.nodes_of_edge(e)
+            data_l = gb.node_props(g_l)
+            a = self.compute_aperture(g_l)
+            # We assume isotropic permeability in the fracture, i.e. the normal
+            # permeability equals the tangential one
+            k_s = data_l[pp.PARAMETERS][self.scalar_parameter_key][
+                "second_order_tensor"
+            ].values[0, 0]
+            # Division through half the aperture represents taking the (normal) gradient
+            kn = mg.slave_to_mortar_int() * np.divide(k_s, a / 2)
+            pp.initialize_data(
+                mg, d, self.scalar_parameter_key, {"normal_diffusivity": kn}
+            )
+
+    def set_rock_and_fluid(self):
+        """
+        Set rock and fluid properties to those of granite and water.
+        We ignore all temperature effects.
+        Credits: PorePy paper
+        """
+        self.rock = pp.Granite()
+        self.rock.FRICTION_COEFFICIENT = 0.5
+        self.fluid = pp.Water()
+        # The permeability may be interpreted as some sort of upscaled effective
+        # value accounting for smaller fractures
+        self.rock.PERMEABILITY = 3e-16
+        # Initial hydraulic aperture in m
+        self.initial_aperture = 1e-3 / self.length_scale
 
     def set_mu(self, g):
         """ Set mu
