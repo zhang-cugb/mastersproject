@@ -644,11 +644,16 @@ def main(
         )
 
     # Define mesh sizes for grid generation.
-    mesh_size = 5  # .36
+    mesh_size = 10  # .36
+    # mesh_args = {
+    #     "mesh_size_frac": mesh_size,
+    #     "mesh_size_min": 0.1 * mesh_size,
+    #     "mesh_size_bound": 6 * mesh_size,
+    # }
     mesh_args = {
         "mesh_size_frac": mesh_size,
-        "mesh_size_min": 0.1 * mesh_size,
-        "mesh_size_bound": 6 * mesh_size,
+        "mesh_size_min": mesh_size,
+        "mesh_size_bound": mesh_size,
     }
 
     setup = ContactMechanicsBiotISC(
