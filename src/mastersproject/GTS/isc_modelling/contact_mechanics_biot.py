@@ -85,6 +85,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
 
         # TODO: Think of a good way to include ISCData in this class
         self.isc = gts.ISCData(path=kwargs.get("data_path", "linux"))
+        self.n_frac = 5
 
         # Basic parameters
         self.set_rock_and_fluid()
@@ -190,7 +191,8 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         # TODO: Compute the actual (unperturbed) stress tensor
         # we, sn, bt = 9.2 * pp.MEGA * pp.PASCAL, 8.7 * pp.MEGA * pp.PASCAL, 13.1 * pp.MEGA * pp.PASCAL
         #we, sn, bt = 7 / 8, 5 / 4, 1
-        we = sn = bt = 9 * pp.MEGA * pp.PASCAL
+        #we = sn = bt = 9 * pp.MEGA * pp.PASCAL
+        we = sn = bt = 9
         bc_values[0, west] = (we * gravity[west]) * A[west]
         bc_values[0, east] = -(we * gravity[east]) * A[east]
         bc_values[1, south] = (sn * gravity[south]) * A[south]
@@ -213,7 +215,8 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         bc_values = np.zeros(g.num_faces)
         depth = self._depth(g.face_centers[:, all_bf])
         bc_values[all_bf] = self.fluid.hydrostatic_pressure(depth) / self.scalar_scale
-        return bc_values
+        #return bc_values
+        return np.zeros(g.num_faces)
 
     def bc_type_scalar(self, g):
         """ Known boundary conditions (Dirichlet)
@@ -381,7 +384,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.rock.MU = mu_from(self.rock.YOUNG_MODULUS, self.rock.POISSON_RATIO)
 
 
-        self.rock.FRICTION_COEFFICIENT = 0.5
+        self.rock.FRICTION_COEFFICIENT = 0.2
         self.rock.POROSITY = 0.7 / 100
 
         self.fluid = pp.Water()
@@ -526,7 +529,9 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         for g, d in self.gb:
             if g.dim < self.Nd:
                 g_h = self.gb.node_neighbors(g)[0]
-                assert g_h.dim == self.Nd
+                # assert g_h.dim == self.Nd
+                if not g_h.dim == self.Nd:
+                    continue
                 data_edge = self.gb.edge_props((g, g_h))
                 u_mortar_local = self.reconstruct_local_displacement_jump(data_edge)
                 tangential_jump = np.linalg.norm(
@@ -568,6 +573,8 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.viz.write_vtk(self.export_fields, time_step=self.time)
         self.export_times.append(self.time)
 
+        self.save_data()
+
     def export_pvd(self):
         """ Implementation of export pvd"""
         self.viz.write_pvd(self.export_times)
@@ -597,8 +604,8 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
 
         """
         self.time = 0
-        self.time_step = 30 * pp.MINUTE
-        self.end_time = 2 * pp.HOUR
+        self.time_step = 1 * pp.DAY
+        self.end_time = 4 * pp.DAY
         # Set initial time step
         self.initial_time_step = self.time_step
 
@@ -685,6 +692,8 @@ def main(
     pp.run_time_dependent_model(setup=setup, params=default_options)
 
     setup.export_pvd()
+    logging.info("Simulation done.")
+    logging.info(f"All files stored to: \n {viz_folder_name}")
 
     return setup
 
