@@ -227,12 +227,10 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         # Define boundary condition on faces
         return pp.BoundaryCondition(g, all_bf, "dir")
 
-    # TODO: Ask if this is correct? How to assign source flow rate?
-    #   borrowed from porepy-paper.
     def source_flow_rate(self):
         """
-        Rate given in l/s = m^3/s e-3. Length scaling needed to convert from
-        the scaled length to m.
+        Rate given in l / min = m^3/s * 1e-3 / 60.
+        Length scaling needed to convert from the scaled length to m.
         """
         liters = 10
         return liters * pp.MILLI * (pp.METER / self.length_scale) ** self.Nd / pp.MINUTE
@@ -255,7 +253,6 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
 
         pts = result.to_numpy().T
         assert pts.shape[1] == 1, "Should only be one intersection"
-
 
         for g, d in self.gb:
             tags = np.zeros(g.num_cells)
@@ -306,6 +303,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
 
     def compute_aperture(self, g):
         """ Compute aperture"""
+        # TODO: Set aperture from transmissibilities.
         apertures = np.ones(g.num_cells)
         shearzone = self.gb.node_props(g, 'name')
         # The mean measured aperture per shear-zone.
@@ -324,6 +322,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         Cubic law in fractures, rock permeability in the matrix.
         Credits: PorePy paper
         """
+        # TODO: Find a valid alternative to cubic law.
         viscosity = self.fluid.dynamic_viscosity() / self.scalar_scale
         gb = self.gb
         for g, d in gb:
