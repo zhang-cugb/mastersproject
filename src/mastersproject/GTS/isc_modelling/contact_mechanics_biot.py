@@ -188,7 +188,9 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         )
         bc_values = np.zeros((g.dim, g.num_faces))
         # TODO: Compute the actual (unperturbed) stress tensor
-        we, sn, bt = 9.2 * pp.MEGA * pp.PASCAL, 8.7 * pp.MEGA * pp.PASCAL, 13.1 * pp.MEGA * pp.PASCAL
+        # we, sn, bt = 9.2 * pp.MEGA * pp.PASCAL, 8.7 * pp.MEGA * pp.PASCAL, 13.1 * pp.MEGA * pp.PASCAL
+        #we, sn, bt = 7 / 8, 5 / 4, 1
+        we = sn = bt = 9 * pp.MEGA * pp.PASCAL
         bc_values[0, west] = (we * gravity[west]) * A[west]
         bc_values[0, east] = -(we * gravity[east]) * A[east]
         bc_values[1, south] = (sn * gravity[south]) * A[south]
@@ -309,7 +311,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
                           'S3_2': 159 * pp.MILLI * pp.METER,
                           None: 1,  # 3D matrix
                           }
-        apertures *= mean_apertures[shearzone]
+        apertures *= mean_apertures[shearzone] / self.length_scale
         return apertures
 
     def set_permeability_from_aperture(self):
@@ -366,11 +368,24 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         Credits: PorePy paper
         """
         self.rock = pp.Granite()
+
+        # Lame parameters
+        self.rock.YOUNG_MODULUS = 20.0 * pp.GIGA * pp.PASCAL
+        self.rock.POISSON_RATIO = 0.33
+        def lam_from(E, v):
+            return E*v / ((1 + v) * (1 - 2*v))
+        def mu_from(E, v):
+            return E / (2 * (1 + v))
+        self.rock.LAMBDA = lam_from(self.rock.YOUNG_MODULUS, self.rock.POISSON_RATIO)
+        self.rock.MU = mu_from(self.rock.YOUNG_MODULUS, self.rock.POISSON_RATIO)
+
+
         self.rock.FRICTION_COEFFICIENT = 0.5
+        self.rock.POROSITY = 0.7 / 100
+
         self.fluid = pp.Water()
-        # The permeability may be interpreted as some sort of upscaled effective
-        # value accounting for smaller fractures
-        self.rock.PERMEABILITY = 3e-16
+        # The permeability is for the intact rock
+        self.rock.PERMEABILITY = 5e-19
         # Initial hydraulic aperture in m
         self.initial_aperture = 1e-3 / self.length_scale
 
@@ -381,7 +396,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         stress = mu * trace(eps) + 2 * lam * eps
         """
         # TODO: Custom mu
-        return np.ones(g.num_cells)
+        return np.ones(g.num_cells) * self.rock.MU
 
     def set_lam(self, g):
         """ Set lambda
@@ -390,7 +405,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         stress = mu * trace(eps) + 2 * lam * eps
         """
         # TODO: Custom lambda
-        return np.ones(g.num_cells)
+        return np.ones(g.num_cells) * self.rock.LAMBDA
 
     def set_mechanics_parameters(self):
         """
@@ -445,15 +460,15 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.export_times = []
 
         self.u_exp = 'u_exp'
-        self.p_exp = 'p_exp'
+        self.p_exp = 'p'
         self.traction_exp = 'traction_exp'
         self.export_fields = [
             self.u_exp,
             self.p_exp,
-            self.traction_exp,
+            #self.traction_exp,
         ]
 
-    def export_step(self):
+    def _export_step(self):
         """
         export_step also serves as a hack to update parameters without changing the biot
         run method, since it is the only method of the setup class which is called at
@@ -476,25 +491,25 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
                 d[pp.STATE]["traction_exp"] = np.zeros(d[pp.STATE][self.u_exp].shape)
             else:
                 g_h = self.gb.node_neighbors(g)[0]
-                assert g_h.dim == self.Nd
-                data_edge = self.gb.edge_props((g, g_h))
-                u_mortar_local = self.reconstruct_local_displacement_jump(data_edge)
-                traction = d[pp.STATE][self.contact_traction_variable].reshape(
-                    (self.Nd, -1), order="F"
-                )
-
-                if g.dim == 2:
-                    d[pp.STATE][self.u_exp] = u_mortar_local * self.length_scale
-                    d[pp.STATE][self.traction_exp] = traction
-                else:
-                    d[pp.STATE][self.u_exp] = np.vstack(
-                        (
-                            u_mortar_local * self.length_scale,
-                            np.zeros(u_mortar_local.shape[1]),
-                        )
+                if g_h.dim == self.Nd:
+                    data_edge = self.gb .edge_props((g, g_h))
+                    u_mortar_local = self.reconstruct_local_displacement_jump(data_edge)
+                    traction = d[pp.STATE][self.contact_traction_variable].reshape(
+                        (self.Nd, -1), order="F"
                     )
+
+                    if g.dim == 2:
+                        d[pp.STATE][self.u_exp] = u_mortar_local * self.length_scale
+                        d[pp.STATE][self.traction_exp] = traction
+                    else:
+                        d[pp.STATE][self.u_exp] = np.vstack(
+                            (
+                                u_mortar_local * self.length_scale,
+                                np.zeros(u_mortar_local.shape[1]),
+                            )
+                        )
             d[pp.STATE][self.p_exp] = d[pp.STATE][self.scalar_variable] * self.scalar_scale
-        self.exporter.write_vtk(self.export_fields, time_step=self.time)
+        self.viz.write_vtk(self.export_fields, time_step=self.time)
         self.export_times.append(self.time)
         self.save_data()
         # self.adjust_time_step()
@@ -528,7 +543,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.u_jumps_tangential = np.concatenate((self.u_jumps_tangential, tangential_u_jumps))
         self.u_jumps_normal = np.concatenate((self.u_jumps_normal, normal_u_jumps))
 
-    def _export_step(self):
+    def export_step(self):
         """ Implementation of export step"""
 
         # Get fracture grids:
