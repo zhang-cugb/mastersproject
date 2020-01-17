@@ -80,13 +80,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.name = "contact mechanics biot on ISC dataset"
         logging.info(f"Running: {self.name}")
 
-        if not os.path.exists(folder_name):
-            os.makedirs(folder_name, exist_ok=True)
-        logging.info(f"Visualization folder path: {folder_name}")
-
-        params = {'folder_name': folder_name}
-
-        super().__init__(params)
+        super().__init__(params={'folder_name': viz_folder_name})
 
         # Root name of solution files
         self.file_name = result_file_name
@@ -95,42 +89,23 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self._set_time_parameters()
 
         # Scaling coefficients
-        # self.scalar_scale = 10 * pp.GIGA
-        # self.length_scale = 50
+        self.scalar_scale = scales['scalar_scale']
+        self.length_scale = scales['length_scale']
 
         # Grid
         self.gb = None
         self.Nd = None
 
-        # Boundary conditions, initial conditions, source conditions:
-        # Scalar source
-        self.source_scalar_borehole_shearzone = {
-            "shearzone": "S1_1",
-            "borehole": "INJ1",
-        }
+        # --- BOUNDARY, INITIAL, SOURCE CONDITIONS ---
+        self.source_scalar_borehole_shearzone = source_scalar_borehole_shearzone
 
-        # Fractures are created in the order of self.shearzone_names.
-        # This is effectively an index of the shearzone at hand.
-        default_shearzone_set = ["S1_1", "S1_2", "S1_3", "S3_1", "S3_2"]
-        self.shearzone_names = kwargs.get("shearzone_names", default_shearzone_set)
+        self.shearzone_names = shearzone_names
+        self.n_frac = len(self.shearzone_names)
 
-        # Mesh size arguments
         self.mesh_args = mesh_args
+        self.box = bounding_box
 
-        # Bounding box of the domain
-        default_box = {
-            "xmin": -6,
-            "xmax": 80,
-            "ymin": 55,
-            "ymax": 150,
-            "zmin": 0,
-            "zmax": 50,
-        }
-        self.box = kwargs.get("box", default_box)
-
-        # TODO: Think of a good way to include ISCData in this class
-        self.isc = gts.ISCData(path=kwargs.get("data_path", "linux"))
-        self.n_frac = 5
+        self.isc = gts.ISCData(path=isc_data_path)
 
         # Basic parameters
         self.set_rock_and_fluid()
@@ -382,10 +357,10 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
             else:
                 # Use the rock permeability in the matrix
                 kxx = (
-                    self.rock.PERMEABILITY
-                    / viscosity
-                    * np.ones(g.num_cells)
-                    / self.length_scale ** 2
+                        self.rock.PERMEABILITY
+                        / viscosity
+                        * np.ones(g.num_cells)
+                        / self.length_scale ** 2
                 )
 
             K = pp.SecondOrderTensor(kxx)
