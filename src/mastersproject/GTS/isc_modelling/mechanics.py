@@ -1,15 +1,82 @@
+import logging
+from typing import (  # noqa
+    Any,
+    Coroutine,
+    Generator,
+    Generic,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+)
+
 import porepy as pp
 import numpy as np
 from porepy.models.contact_mechanics_model import ContactMechanics
 from porepy.models.abstract_model import AbstractModel
-
 
 import GTS as gts
 from GTS.prototype_1.mechanics.isotropic_setup import IsotropicSetup
 
 
 class ContactMechanicsISC(ContactMechanics):
-    """ Implementation of ContactMechanics for ISC"""
+    """ Implementation of ContactMechanics for ISC
+
+    Run a Contact Mechanics model from porepy on the geometry
+    defined by the In-Situ Stimulation and Circulation (ISC)
+    project at the Grimsel Test Site (GTS).
+    """
+
+    def __init__(
+            self,
+            viz_folder_name: str,
+            result_file_name: str,
+            isc_data_path: str,
+            mesh_args: Mapping[str, int],
+            bounding_box: Mapping[str, int],
+            shearzone_names: List[str],
+            source_scalar_borehole_shearzone: Mapping[str, str],
+            scales: Mapping[str, float],
+    ):
+        """ Initialize a Contact Mechanics model for GTS-ISC geometry.
+
+        Parameters
+        ----------
+        viz_folder_name : str
+            Absolute path to folder where grid and results will be stored
+        result_file_name : str
+            Root name for simulation result files
+        isc_data_path : str
+            Path to isc data: path/to/GTS/01BasicInputData
+            Alternatively 'linux' or 'windows' for certain default paths (only applies to haakon's computers).
+        mesh_args : Mapping[str, int]
+            Arguments for meshing of domain.
+            Required keys: 'mesh_size_frac', 'mesh_size_min, 'mesh_size_bound'
+        bounding_box : Mapping[str, int]
+            Bounding box of domain
+            Required keys: 'xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax'.
+        shearzone_names : List[str]
+            Which shear-zones to include in simulation
+        source_scalar_borehole_shearzone : Mapping[str, str]
+            Which borehole and shear-zone intersection to do injection in.
+            Required keys: 'shearzone', 'borehole'
+        scales : Mapping[str, float]
+            Length scale and scalar variable scale.
+            Required keys: 'scalar_scale', 'length_scale'
+        """
+
+        self.name = "contact mechanics on ISC dataset"
+        logging.info(f"Running: {self.name}")
+
+        super().__init__(params={'folder_name': viz_folder_name})
+
+        # Root name of solution files
+        self.file_name = result_file_name
 
         # Time
         self._set_time_parameters()
@@ -38,15 +105,29 @@ class ContactMechanicsISC(ContactMechanics):
         """ Create a GridBucket of a 3D domain with fractures
         defined by the ISC dataset.
 
+        Parameters
+        ----------
+        overwrite_grid : bool
+            Overwrite an existing grid.
+
         The method requires the following attribute:
             mesh_args (dict): Containing the mesh sizes.
 
+        Returns
+        -------
+        None
+
+        Attributes
+        ----------
         The method assigns the following attributes to self:
-            gb (pp.GridBucket): The produced grid bucket.
-            box (dict): The bounding box of the domain, defined through minimum and
-                maximum values in each dimension.
-            Nd (int): The dimension of the matrix, i.e., the highest dimension in the
-                grid bucket.
+            gb : pp.GridBucket
+                The produced grid bucket.
+            box : dict
+                The bounding box of the domain, defined through
+                minimum and maximum values in each dimension.
+            Nd : int
+                The dimension of the matrix, i.e., the highest
+                dimension in the grid bucket.
 
         """
         if (self.gb is None) or overwrite_grid:

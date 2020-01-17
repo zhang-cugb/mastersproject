@@ -1,5 +1,20 @@
 import os
 import logging
+from typing import (  # noqa
+    Any,
+    Coroutine,
+    Generator,
+    Generic,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+)
 
 import porepy as pp
 import numpy as np
@@ -10,28 +25,58 @@ import GTS as gts
 
 
 class ContactMechanicsBiotISC(ContactMechanicsBiot):
-    def __init__(self, mesh_args, folder_name, **kwargs):
+    """
+
+    Attributes
+    ----------
+    name : str
+        descriptive name of this class
+    file_name : str
+        Root name of solution files
+    scalar_scale : float
+        Scale of scalar variable
+    length_scale : float
+        Scale of lengths
+
+    """
+    def __init__(
+            self,
+            viz_folder_name: str,
+            result_file_name: str,
+            isc_data_path: str,
+            mesh_args: Mapping[str, int],
+            bounding_box: Mapping[str, int],
+            shearzone_names: List[str],
+            source_scalar_borehole_shearzone: Mapping[str, str],
+            scales: Mapping[str, float],
+    ):
         """ Initialize the Contact Mechanics Biot
 
         Parameters
-        mesh_args : dict
-            Mesh arguments
-        folder_name : str
-            absolute path to storage folder
-            Stored in self.viz_folder_name
-            and in self.folder_name
-        kwargs
-            time_step : float : Default = 1
-                size of a time step (post-scaled to self.length_scale ** 2)
-            num_steps : int : Default = 2
-                Total number of time steps
-            data_path : str
-                path to isc_data: path/to/GTS/01BasicInputData
-            shearzone_names : list[str]
-                which shear-zones to mesh
-            box : dict[str, int]
-                bounding box of domain.
+        ----------
+        viz_folder_name : str
+            Absolute path to folder where grid and results will be stored
+        result_file_name : str
+            Root name for simulation result files
+        isc_data_path : str
+            Path to isc data: path/to/GTS/01BasicInputData
+            Alternatively 'linux' or 'windows' for certain default paths (only applies to haakon's computers).
+        mesh_args : Mapping[str, int]
+            Arguments for meshing of domain.
+            Required keys: 'mesh_size_frac', 'mesh_size_min, 'mesh_size_bound'
+        bounding_box : Mapping[str, int]
+            Bounding box of domain
+            Required keys: 'xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax'.
+        shearzone_names : List[str]
+            Which shear-zones to include in simulation
+        source_scalar_borehole_shearzone : Mapping[str, str]
+            Which borehole and shear-zone intersection to do injection in.
+            Required keys: 'shearzone', 'borehole'
+        scales : Mapping[str, float]
+            Length scale and scalar variable scale.
+            Required keys: 'scalar_scale', 'length_scale'
         """
+
         self.name = "contact mechanics biot on ISC dataset"
         logging.info(f"Running: {self.name}")
 
@@ -44,7 +89,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         super().__init__(params)
 
         # Root name of solution files
-        self.file_name = 'main_run'
+        self.file_name = result_file_name
 
         # Time
         self._set_time_parameters()
@@ -190,8 +235,8 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         bc_values = np.zeros((g.dim, g.num_faces))
         # TODO: Compute the actual (unperturbed) stress tensor
         # we, sn, bt = 9.2 * pp.MEGA * pp.PASCAL, 8.7 * pp.MEGA * pp.PASCAL, 13.1 * pp.MEGA * pp.PASCAL
-        #we, sn, bt = 7 / 8, 5 / 4, 1
-        #we = sn = bt = 9 * pp.MEGA * pp.PASCAL
+        # we, sn, bt = 7 / 8, 5 / 4, 1
+        # we = sn = bt = 9 * pp.MEGA * pp.PASCAL
         we = sn = bt = 9
         bc_values[0, west] = (we * gravity[west]) * A[west]
         bc_values[0, east] = -(we * gravity[east]) * A[east]
@@ -211,11 +256,11 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         credit: porepy paper
         """
         # TODO: Hydrostatic scalar BC's (values).
-        all_bf, *_= self.domain_boundary_sides(g)
+        all_bf, *_ = self.domain_boundary_sides(g)
         bc_values = np.zeros(g.num_faces)
         depth = self._depth(g.face_centers[:, all_bf])
         bc_values[all_bf] = self.fluid.hydrostatic_pressure(depth) / self.scalar_scale
-        #return bc_values
+        # return bc_values
         return np.zeros(g.num_faces)
 
     def bc_type_scalar(self, g):
@@ -262,7 +307,6 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
 
             # We only tag cells in the desired fracture
             if grid_name == bh_sz['shearzone']:
-
                 logging.info(f"Grid of name: {grid_name}, and dimension {g.dim}")
                 logging.info(f"Setting non-zero source for scalar variable")
 
@@ -375,13 +419,15 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         # Lame parameters
         self.rock.YOUNG_MODULUS = 20.0 * pp.GIGA * pp.PASCAL
         self.rock.POISSON_RATIO = 0.33
+
         def lam_from(E, v):
-            return E*v / ((1 + v) * (1 - 2*v))
+            return E * v / ((1 + v) * (1 - 2 * v))
+
         def mu_from(E, v):
             return E / (2 * (1 + v))
+
         self.rock.LAMBDA = lam_from(self.rock.YOUNG_MODULUS, self.rock.POISSON_RATIO)
         self.rock.MU = mu_from(self.rock.YOUNG_MODULUS, self.rock.POISSON_RATIO)
-
 
         self.rock.FRICTION_COEFFICIENT = 0.2
         self.rock.POROSITY = 0.7 / 100
@@ -468,7 +514,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.export_fields = [
             self.u_exp,
             self.p_exp,
-            #self.traction_exp,
+            # self.traction_exp,
         ]
 
     def _export_step(self):
@@ -495,7 +541,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
             else:
                 g_h = self.gb.node_neighbors(g)[0]
                 if g_h.dim == self.Nd:
-                    data_edge = self.gb .edge_props((g, g_h))
+                    data_edge = self.gb.edge_props((g, g_h))
                     u_mortar_local = self.reconstruct_local_displacement_jump(data_edge)
                     traction = d[pp.STATE][self.contact_traction_variable].reshape(
                         (self.Nd, -1), order="F"
@@ -540,7 +586,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
                 vol = np.sum(g.cell_volumes)
                 tangential_jump_norm = np.sqrt(np.sum(tangential_jump ** 2 * g.cell_volumes)) / vol
                 normal_jump_norm = (
-                    np.sqrt(np.sum(normal_jump ** 2 * g.cell_volumes)) / vol
+                        np.sqrt(np.sum(normal_jump ** 2 * g.cell_volumes)) / vol
                 )
                 tangential_u_jumps[0, g.frac_num] = tangential_jump_norm
                 normal_u_jumps[0, g.frac_num] = normal_jump_norm
@@ -695,8 +741,6 @@ def main(
     logging.info(f"All files stored to: \n {viz_folder_name}")
 
     return setup
-
-
 
 
 def run_model(
