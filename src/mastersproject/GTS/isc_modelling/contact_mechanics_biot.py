@@ -419,7 +419,6 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         Set mu in linear elasticity stress-strain relation.
         stress = mu * trace(eps) + 2 * lam * eps
         """
-        # TODO: Custom mu
         return np.ones(g.num_cells) * self.rock.MU
 
     def set_lam(self, g):
@@ -428,7 +427,6 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         Set lambda in linear elasticity stress-strain relation.
         stress = mu * trace(eps) + 2 * lam * eps
         """
-        # TODO: Custom lambda
         return np.ones(g.num_cells) * self.rock.LAMBDA
 
     def set_mechanics_parameters(self):
@@ -477,6 +475,9 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
             mg = d["mortar_grid"]
             pp.initialize_data(mg, d, self.mechanics_parameter_key)
 
+    # TODO: Overwrite set_scalar_parameters() method from parent
+    #  to adjust mass_weight.
+
     def set_viz(self):
         """ Set exporter for visualization """
         self.viz = pp.Exporter(self.gb, name=self.file_name, folder=self.viz_folder_name)
@@ -512,7 +513,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
                     d[pp.STATE][self.u_exp] = np.vstack(
                         (u * self.length_scale, np.zeros(u.shape[1]))
                     )
-                d[pp.STATE]["traction_exp"] = np.zeros(d[pp.STATE][self.u_exp].shape)
+                d[pp.STATE][self.traction_exp] = np.zeros(d[pp.STATE][self.u_exp].shape)
             else:
                 g_h = self.gb.node_neighbors(g)[0]
                 if g_h.dim == self.Nd:
