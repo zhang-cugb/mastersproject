@@ -220,34 +220,6 @@ class ContactMechanicsISC(ContactMechanics):
         bc.is_dir[:, fracture_faces] = True
         return bc
 
-    def stress_tensor(self):
-        """ Compute the stress tensor"""
-
-        # Values from Krietsch et al 2019
-        stress_value = np.array([13.1, 9.2, 8.7])
-        dip_direction = np.array([104.48, 259.05, 3.72])
-        dip = np.array([39.21, 47.90, 12.89])
-
-        def r(th, gm):
-            """ Compute direction vector of a dip (th) and dip direction (gm)."""
-            rad = np.pi / 180
-            x = np.cos(th * rad) * np.sin(gm * rad)
-            y = np.cos(th * rad) * np.cos(gm * rad)
-            z = - np.sin(th * rad)
-            return np.array([x, y, z])
-
-        rot = r(th=dip, gm=dip_direction)
-
-        # Orthogonalize the rotation matrix (which is already close to orthogonal)
-        rot, _ = np.linalg.qr(rot)
-
-        # Stress tensor in principal coordinate system
-        stress = np.diag(stress_value)
-
-        # Stress tensor in euclidean coordinate system
-        stress_eucl = np.dot(np.dot(rot, stress), rot.T)
-        return stress_eucl
-
     def bc_values(self, g):
         """ Mechanical stress values as ISC
         """
