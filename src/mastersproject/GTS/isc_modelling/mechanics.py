@@ -42,6 +42,8 @@ class ContactMechanicsISC(ContactMechanics):
             shearzone_names: List[str],
             source_scalar_borehole_shearzone: Mapping[str, str],
             scales: Mapping[str, float],
+            stress: np.ndarray,
+            solver: str,
     ):
         """ Initialize a Contact Mechanics model for GTS-ISC geometry.
 
@@ -54,6 +56,7 @@ class ContactMechanicsISC(ContactMechanics):
         isc_data_path : str
             Path to isc data: path/to/GTS/01BasicInputData
             Alternatively 'linux' or 'windows' for certain default paths (only applies to haakon's computers).
+        --- SIMULATION RELATED PARAMETERS ---
         mesh_args : Mapping[str, int]
             Arguments for meshing of domain.
             Required keys: 'mesh_size_frac', 'mesh_size_min, 'mesh_size_bound'
@@ -68,12 +71,21 @@ class ContactMechanicsISC(ContactMechanics):
         scales : Mapping[str, float]
             Length scale and scalar variable scale.
             Required keys: 'scalar_scale', 'length_scale'
+        solver : str, {'direct', 'pyamg'}
+            Which solver to use
+        --- PHYSICAL PARAMETERS ---
+        stress : np.ndarray
+            Stress tensor for boundary conditions
         """
 
         self.name = "contact mechanics on ISC dataset"
         logging.info(f"Running: {self.name}")
 
-        super().__init__(params={'folder_name': viz_folder_name})
+        params = {
+            'folder_name': viz_folder_name,  # saved in self.viz_folder_name
+            'linear_solver': solver,
+        }
+        super().__init__(params=params)
 
         # Root name of solution files
         self.file_name = result_file_name
