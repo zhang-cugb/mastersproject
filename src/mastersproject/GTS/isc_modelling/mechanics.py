@@ -354,7 +354,7 @@ class ContactMechanicsISC(ContactMechanics):
         self.traction_exp = 'traction_exp'
         self.export_fields = [
             self.u_exp,
-            # self.traction_exp,
+            self.traction_exp,
         ]
 
     def prepare_simulation(self):
@@ -377,7 +377,6 @@ class ContactMechanicsISC(ContactMechanics):
         """ Export a step
 
         Inspired by Keilegavlen 2019 (code)
-        # TODO: Export traction (see contact_mechanics_biot)
         """
         gb = self.gb
         Nd = self.Nd
@@ -391,6 +390,8 @@ class ContactMechanicsISC(ContactMechanics):
 
                 d[pp.STATE][self.u_exp] = u
 
+                d[pp.STATE][self.traction_exp] = np.zeros(d[pp.STATE][self.u_exp].shape)
+
             else:  # In fractures or intersection of fractures (etc.)
                 g_h = gb.node_neighbors(g, only_higher=True)[0]  # Get the higher-dimensional neighbor
                 if g_h.dim == Nd:  # In a fracture
@@ -399,10 +400,13 @@ class ContactMechanicsISC(ContactMechanics):
                         data_edge=data_edge, from_iterate=True).copy()
                     u_mortar_local = u_mortar_local * self.length_scale
 
-                    if g.dim != 2:  # Only called if solving a 2D problem (i.e. this is a 0D fracture intersection)
-                        u_mortar_local = np.vstack(u_mortar_local, np.zeros(u_mortar_local.shape[1]))
+                    traction = d[pp.STATE][self.contact_traction_variable].reshape((Nd, -1), order="F")
 
-                    d[pp.STATE][self.u_exp] = u_mortar_local
+                    if g.dim == 2:
+                        d[pp.STATE][self.u_exp] = u_mortar_local
+                        d[pp.STATE][self.traction_exp] = traction
+                    else:  # Only called if solving a 2D problem (i.e. this is a 0D fracture intersection)
+                        d[pp.STATE][self.u_exp] = np.vstack(u_mortar_local, np.zeros(u_mortar_local.shape[1]))
 
         self.viz.write_vtk(data=self.export_fields, time_dependent=False)  # Write visualization
         self.save_data()
