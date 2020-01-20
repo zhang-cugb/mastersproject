@@ -24,7 +24,7 @@ from porepy.models.contact_mechanics_biot_model import ContactMechanicsBiot
 import GTS as gts
 
 
-def setup_model(
+def run_mechanics_model(
         *,
         viz_folder_name: str = None,
         result_file_name: str = None,
@@ -36,7 +36,7 @@ def setup_model(
         scales: Mapping[str, float] = None,
 
 ):
-    """ Send all initialization parameters to contact mechanics or contact mechanics biot class.
+    """ Send all initialization parameters to contact mechanics class
 
     Parameters
     ----------
@@ -131,6 +131,9 @@ def setup_model(
             'length_scale': 1,
         }
 
+    # Set solver same as porepy default:
+    solver = 'python'
+
     # TODO: Set custom time parameters with a class with only one method: _set_time_parameters
 
     # ---------------------------
@@ -138,6 +141,39 @@ def setup_model(
     # ---------------------------
 
     stress = stress_tensor()
+
+    # -------------------
+    # --- SETUP MODEL ---
+    # -------------------
+
+    setup = gts.ContactMechanicsISC(
+        viz_folder_name=viz_folder_name,
+        result_file_name=result_file_name,
+        isc_data_path=isc_data_path,
+        mesh_args=mesh_args,
+        bounding_box=bounding_box,
+        shearzone_names=shearzone_names,
+        source_scalar_borehole_shearzone=source_scalar_borehole_shearzone,
+        scales=scales,
+        stress=stress,
+        solver=solver,
+    )
+
+    # -------------------------
+    # --- SOLVE THE PROBLEM ---
+    # -------------------------
+    default_options = {  # Parameters for Newton solver.
+        "max_iterations": 10,
+        "convergence_tol": 1e-10,
+        "divergence_tol": 1e5,
+    }
+
+    pp.run_stationary_model(setup, params=default_options)
+
+    setup.export_step()
+
+
+
 
 
 def stress_tensor():
