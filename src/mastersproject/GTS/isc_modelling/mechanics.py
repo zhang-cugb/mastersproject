@@ -259,7 +259,7 @@ class ContactMechanicsISC(ContactMechanics):
 
                 self.PERMEABILITY = 1
                 self.THERMAL_EXPANSION = 1
-                self.DENSITY = 2700 * pp.KILOGRAM / (pp.METER) ** 3
+                self.DENSITY = 2700 * pp.KILOGRAM / (pp.METER ** 3)
                 self.POROSITY = 1
 
                 # Lamé parameters
@@ -418,37 +418,62 @@ class ContactMechanicsISC(ContactMechanics):
         gb = self.gb
         Nd = self.Nd
         n = self.n_frac
+
         tangential_u_jumps = np.zeros((1, n))
         normal_u_jumps = np.zeros((1, n))
 
-        for g, d in gb:
-            if g.dim < Nd:
-                g_h = gb.node_neighbors(g, only_higher=True)  # Get higher-dimensional neighbor
-                if not g_h.dim == Nd:
-                    continue  # We only consider fractures (not intersections of fractures)
-                data_edge = gb.edge_props((g, g_h))
-                u_mortar_local = self.reconstruct_local_displacement_jump(
-                    data_edge=data_edge, from_iterate=True).copy() * self.length_scale
+        for frac_num, frac_name in enumerate(self.shearzone_names):
+            g_lst = gb.get_grids(lambda _g: gb.node_props(_g) == frac_name)
+            assert len(g_lst) == 1  # Currently assume each fracture is uniquely named.
 
-                # Jump distances
-                tangential_jump = np.linalg.norm(u_mortar_local[:-1, :], axis=0)
-                normal_jump = np.linalg.norm(u_mortar_local[-1, :])
+            g = g_lst[0]
+            g_h = gb.node_neighbors(g, only_higher=True)  # Get higher-dimensional neighbor
+            assert g_h.dim == Nd  # We only operate on fractures of dim Nd-1.
 
-                # Ad-hoc average normal and tangential jump "estimates"
-                # TODO: Find a proper way to express the "total" displacement of a fracture
-                avg_tangential_jump = np.sum(np.abs(tangential_jump) * g.cell_volumes) / np.sum(g.cell_volumes)
-                avg_normal_jump = np.sum(tangential_jump * g.cell_volumes) / np.sum(g.cell_volumes)
+            data_edge = gb.edge_props((g, g_h))
+            u_mortar_local = self.reconstruct_local_displacement_jump(
+                data_edge=data_edge, from_iterate=True).copy() * self.length_scale
 
+            # Jump distances
+            tangential_jump = np.linalg.norm(u_mortar_local[:-1, :], axis=0)
+            normal_jump = np.linalg.norm(u_mortar_local[-1, :])
 
+            # Ad-hoc average normal and tangential jump "estimates"
+            # TODO: Find a proper way to express the "total" displacement of a fracture
+            avg_tangential_jump = np.sum(tangential_jump * g.cell_volumes) / np.sum(g.cell_volumes)
+            avg_normal_jump = np.sum(normal_jump * g.cell_volumes) / np.sum(g.cell_volumes)
 
+            tangential_u_jumps[0, frac_num] = avg_tangential_jump
+            normal_u_jumps[0, frac_num] = avg_normal_jump
 
+        self.u_jumps_tangential = np.concatenate((self.u_jumps_tangential, tangential_u_jumps))
+        self.u_jumps_normal = np.concatenate((self.u_jumps_normal, normal_u_jumps))
 
+    def after_newton_iteration(self, solution_vector):
+        """
+        Extract parts of the solution for current iterate.
 
+        The iterate solutions in d[pp.STATE]["previous_iterate"] are updated for the
+        mortar displacements and contact traction are updated.
+        Method is a tailored copy from assembler.distribute_variable.
+
+        OVERWRITES parent to remove writing to vtk.
+
+        Parameters:
+            assembler (pp.Assembler): assembler for self.gb.
+            solution_vector (np.array): solution vector for the current iterate.
+
+        Returns:
+            (np.array): displacement solution vector for the Nd grid.
+
+        """
+        self.update_state(solution_vector)
 
     def after_newton_convergence(self, solution, errors, iteration_counter):
         """ What to do at the end of a step."""
         self.assembler.distribute_variable(solution)
         self.export_step()
+
 
 class ContactMechanicsIsotropicISC(IsotropicSetup):
     def __init__(self, **kwargs):
