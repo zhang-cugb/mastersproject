@@ -18,6 +18,8 @@ from GTS.fit_plane import fit_normal_to_points  # Temporary for prototype testin
 from GTS.fit_plane import convex_hull  # Construct the convex hull
 
 # Problem setup and solver classes
+from GTS.isc_modelling.setup import run_mechanics_model
+
 from GTS.isc_modelling.mechanics import ContactMechanicsISC
 from GTS.isc_modelling.mechanics import ContactMechanicsIsotropicISC
 from GTS.isc_modelling.mechanics import run_model as run_model_mechanics

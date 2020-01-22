@@ -131,8 +131,8 @@ def run_mechanics_model(
             'length_scale': 1,
         }
 
-    # Set solver same as porepy default:
-    solver = 'python'
+    # Set solver. 'pyamg' or 'direct'.
+    solver = 'direct'
 
     # TODO: Set custom time parameters with a class with only one method: _set_time_parameters
 
@@ -158,7 +158,6 @@ def run_mechanics_model(
         stress=stress,
         solver=solver,
     )
-
     # -------------------------
     # --- SOLVE THE PROBLEM ---
     # -------------------------
@@ -171,6 +170,7 @@ def run_mechanics_model(
     pp.run_stationary_model(setup, params=default_options)
 
     setup.export_step()
+    return setup
 
 
 
