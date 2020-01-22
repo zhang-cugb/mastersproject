@@ -90,9 +90,6 @@ class ContactMechanicsISC(ContactMechanics):
         # Root name of solution files
         self.file_name = result_file_name
 
-        # Time
-        self._set_time_parameters()
-
         # Scaling coefficients
         self.scalar_scale = scales['scalar_scale']
         self.length_scale = scales['length_scale']
@@ -265,8 +262,8 @@ class ContactMechanicsISC(ContactMechanics):
                 # Lamé parameters
                 self.YOUNG_MODULUS = 49 * pp.GIGA * pp.PASCAL  # Krietsch et al 2018 (Data Descriptor) - Dynamic E
                 self.POISSON_RATIO = 0.32  # Krietsch et al 2018 (Data Descriptor) - Dynamic Poisson
-                self.LAMBDA, self.rock.MU = pp.params.rock.lame_from_young_poisson(
-                    self.YOUNG_MODULUS, self.rock.POISSON_RATIO
+                self.LAMBDA, self.MU = pp.params.rock.lame_from_young_poisson(
+                    self.YOUNG_MODULUS, self.POISSON_RATIO
                 )
 
                 self.FRICTION_COEFFICIENT = 0.8
