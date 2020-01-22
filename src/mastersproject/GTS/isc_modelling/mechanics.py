@@ -405,9 +405,12 @@ class ContactMechanicsISC(ContactMechanics):
                     if g.dim == 2:
                         d[pp.STATE][self.u_exp] = u_mortar_local
                         d[pp.STATE][self.traction_exp] = traction
+                    # TODO: Check when this statement is actually called
                     else:  # Only called if solving a 2D problem (i.e. this is a 0D fracture intersection)
                         d[pp.STATE][self.u_exp] = np.vstack(u_mortar_local, np.zeros(u_mortar_local.shape[1]))
-
+                else:  # In a fracture intersection
+                    d[pp.STATE][self.u_exp] = np.zeros((Nd, g.num_cells))
+                    d[pp.STATE][self.traction_exp] = np.zeros((Nd, g.num_cells))
         self.viz.write_vtk(data=self.export_fields, time_dependent=False)  # Write visualization
         self.save_data()
 
@@ -423,11 +426,11 @@ class ContactMechanicsISC(ContactMechanics):
         normal_u_jumps = np.zeros((1, n))
 
         for frac_num, frac_name in enumerate(self.shearzone_names):
-            g_lst = gb.get_grids(lambda _g: gb.node_props(_g) == frac_name)
+            g_lst = gb.get_grids(lambda _g: gb.node_props(_g)['name'] == frac_name)
             assert len(g_lst) == 1  # Currently assume each fracture is uniquely named.
 
             g = g_lst[0]
-            g_h = gb.node_neighbors(g, only_higher=True)  # Get higher-dimensional neighbor
+            g_h = gb.node_neighbors(g, only_higher=True)[0]  # Get higher-dimensional neighbor
             assert g_h.dim == Nd  # We only operate on fractures of dim Nd-1.
 
             data_edge = gb.edge_props((g, g_h))
