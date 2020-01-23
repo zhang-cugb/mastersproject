@@ -15,6 +15,7 @@ from typing import (  # noqa
     TypeVar,
     Union,
 )
+import pendulum
 
 import porepy as pp
 import numpy as np
