@@ -23,6 +23,8 @@ from porepy.models.abstract_model import AbstractModel
 import GTS as gts
 from GTS.prototype_1.mechanics.isotropic_setup import IsotropicSetup
 
+logger = logging.getLogger(__name__)
+
 
 class ContactMechanicsISC(ContactMechanics):
     """ Implementation of ContactMechanics for ISC
@@ -79,7 +81,7 @@ class ContactMechanicsISC(ContactMechanics):
         """
 
         self.name = "contact mechanics on ISC dataset"
-        logging.info(f"Running: {self.name}")
+        logger.info(f"Running: {self.name}")
 
         params = {
             'folder_name': viz_folder_name,  # saved in self.viz_folder_name

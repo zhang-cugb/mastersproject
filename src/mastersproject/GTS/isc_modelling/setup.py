@@ -23,6 +23,8 @@ from porepy.models.contact_mechanics_biot_model import ContactMechanicsBiot
 
 import GTS as gts
 
+logger = logging.getLogger(__name__)
+
 
 def run_mechanics_model(
         *,
@@ -66,7 +68,6 @@ def run_mechanics_model(
         Required keys: 'scalar_scale', 'length_scale'
         Defaults to 1 for both.
     """
-
     # ------------------------------------------
     # --- FOLDER AND FILE RELATED PARAMETERS ---
     # ------------------------------------------
@@ -79,11 +80,16 @@ def run_mechanics_model(
     # Create viz folder path if it does not already exist
     if not os.path.exists(viz_folder_name):
         os.makedirs(viz_folder_name, exist_ok=True)
-    logging.info(f"Visualization folder path: {viz_folder_name}")
+
+    # Set up logging
+    logging.basicConfig(filename=viz_folder_name+"/results.log", level=logging.DEBUG)
+    logger.info(f"Preparing setup for mechanics simulation on {pendulum.now().to_atom_string()}")
+    logger.info(f"Visualization folder path: \n {viz_folder_name}")
 
     # Set file name of modelling results files
     if result_file_name is None:
         result_file_name = 'main_run'
+    logger.info(f"Root file name of results: {result_file_name}")
 
     # Get data path to ISC data
     if isc_data_path is None:
@@ -101,6 +107,7 @@ def run_mechanics_model(
             "mesh_size_min": mesh_size,
             "mesh_size_bound": mesh_size,
         }
+    logger.info(f"Mesh arguments: \n {mesh_args}")
 
     # Set bounding box
     if bounding_box is None:
@@ -112,17 +119,12 @@ def run_mechanics_model(
             "zmin": 0,
             "zmax": 50,
         }
+    logger.info(f"Bounding box: \n {bounding_box}")
 
     # Set which shear-zones to include in simulation
     if shearzone_names is None:
         shearzone_names = ["S1_1", "S1_2", "S1_3", "S3_1", "S3_2"]
-
-    # Set borehole and shear-zone names for which injection occurs.
-    if source_scalar_borehole_shearzone is None:
-        source_scalar_borehole_shearzone = {
-            "shearzone": "S1_1",
-            "borehole": "INJ1",
-        }
+    logger.info(f"Shear zones in simulation: \n {shearzone_names}")
 
     # Set length scale and scalar scale
     if scales is None:
@@ -130,9 +132,11 @@ def run_mechanics_model(
             'scalar_scale': 1,
             'length_scale': 1,
         }
+    logger.info(f"Variable scaling: \n {scales}")
 
     # Set solver. 'pyamg' or 'direct'.
     solver = 'direct'
+    logger.info(f"Solver type: {solver}")
 
     # TODO: Set custom time parameters with a class with only one method: _set_time_parameters
 
@@ -141,7 +145,7 @@ def run_mechanics_model(
     # ---------------------------
 
     stress = stress_tensor()
-
+    logger.info(f"Stress tensor: \n {stress}")
     # -------------------
     # --- SETUP MODEL ---
     # -------------------
@@ -166,14 +170,17 @@ def run_mechanics_model(
         "convergence_tol": 1e-10,
         "divergence_tol": 1e5,
     }
+    newton_options = default_options
+    logger.info(f"Options for Newton solver: \n {newton_options}")
 
-    pp.run_stationary_model(setup, params=default_options)
+    logger.info("Setup complete. Starting simulation")
+    pp.run_stationary_model(setup, params=newton_options)
+    logger.info("Simulation complete. Exporting solution.")
 
     setup.export_step()
+    logger.info(f"Solution exported to folder \n {viz_folder_name}")
+    logger.info(f"Exits method on {pendulum.now().to_atom_string()}")
     return setup
-
-
-
 
 
 def stress_tensor():

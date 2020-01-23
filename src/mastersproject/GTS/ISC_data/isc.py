@@ -16,6 +16,7 @@ import pandas as pd
 
 import GTS as gts
 
+logger = logging.getLogger(__name__)
 
 class ISCData:
     def __init__(self, path=None):
@@ -43,7 +44,7 @@ class ISCData:
         else:
             self.data_path = Path(path)
 
-        logging.info(f"Data located at: {self.data_path}.")
+        logger.info(f"Data located at: {self.data_path}.")
         assert self.data_path.is_dir()
 
         # ========= CONSTANTS ==========================================================================================
