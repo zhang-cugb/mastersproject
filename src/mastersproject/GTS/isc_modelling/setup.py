@@ -15,16 +15,29 @@ from typing import (  # noqa
     TypeVar,
     Union,
 )
-import pendulum
+from pathlib import Path
 
+import pendulum
 import porepy as pp
 import numpy as np
 import scipy.sparse as sps
 from porepy.models.contact_mechanics_biot_model import ContactMechanicsBiot
 
 import GTS as gts
+from refinement import refine_mesh
 
-logger = logging.getLogger(__name__)
+
+def __setup_logging(path, log_fname="results.log"):
+    path = str(path)
+    # Log info messages to console
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+    # Add handler for logging debug messages to file.
+    fh = logging.FileHandler(path + "/" + log_fname)
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(logging.Formatter(logging.BASIC_FORMAT))
+    logger.addHandler(fh)
+    return logger
 
 
 def run_mechanics_model(
@@ -35,7 +48,7 @@ def run_mechanics_model(
         mesh_args: Mapping[str, int] = None,
         bounding_box: Mapping[str, int] = None,
         shearzone_names: List[str] = None,
-        source_scalar_borehole_shearzone: Mapping[str, str] = None,
+        # source_scalar_borehole_shearzone: Mapping[str, str] = None,
         scales: Mapping[str, float] = None,
 
 ):
@@ -61,9 +74,9 @@ def run_mechanics_model(
         Required keys: 'xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax'.
     shearzone_names : List[str]
         Which shear-zones to include in simulation
-    source_scalar_borehole_shearzone : Mapping[str, str]
-        Which borehole and shear-zone intersection to do injection in.
-        Required keys: 'shearzone', 'borehole'
+    # source_scalar_borehole_shearzone : Mapping[str, str]
+    #     Which borehole and shear-zone intersection to do injection in.
+    #     Required keys: 'shearzone', 'borehole'
     scales : Mapping[str, float]
         Length scale and scalar variable scale.
         Required keys: 'scalar_scale', 'length_scale'
@@ -78,11 +91,15 @@ def run_mechanics_model(
         viz_folder_name = (
             "/home/haakon/mastersproject/src/mastersproject/GTS/isc_modelling/results/default"
         )
+    viz_folder_name = str(viz_folder_name)
     # Create viz folder path if it does not already exist
     if not os.path.exists(viz_folder_name):
         os.makedirs(viz_folder_name, exist_ok=True)
 
     # Set up logging
+    logger = __setup_logging(viz_folder_name)
+
+
     logging.basicConfig(filename=viz_folder_name+"/results.log", level=logging.DEBUG)
     logger.info(f"Preparing setup for mechanics simulation on {pendulum.now().to_atom_string()}")
     logger.info(f"Visualization folder path: \n {viz_folder_name}")
@@ -158,7 +175,7 @@ def run_mechanics_model(
         mesh_args=mesh_args,
         bounding_box=bounding_box,
         shearzone_names=shearzone_names,
-        source_scalar_borehole_shearzone=source_scalar_borehole_shearzone,
+        # source_scalar_borehole_shearzone=source_scalar_borehole_shearzone,
         scales=scales,
         stress=stress,
         solver=solver,
@@ -182,6 +199,171 @@ def run_mechanics_model(
     logger.info(f"Solution exported to folder \n {viz_folder_name}")
     logger.info(f"Exits method on {pendulum.now().to_atom_string()}")
     return setup
+
+
+def create_isc_domain(
+        viz_folder_name: Union[str, Path],
+        shearzone_names: List[str],
+        bounding_box: dict,
+        mesh_args: dict,
+        n_refinements: int = 0):
+    """ Create a domain (.geo file) for the ISC test site.
+
+    Parameters
+    ----------
+    viz_folder_name : str or pathlib.Path
+        Absolute path to folder to store results in
+    shearzone_names : List of str
+        Names of shearzones to include
+    bounding_box : dict
+        Bounding box of domain ('xmin', 'xmax', etc.)
+    mesh_args : dict
+        Arguments for meshing (of coarsest grid)
+    n_refinements : int, Default = 0
+        Number of refined grids to produce.
+        The grid is refined by splitting.
+    """
+
+    # -----------------
+    # --- ARGUMENTS ---
+    # -----------------
+    isc_data_path = 'linux'
+
+    # ----------------------------------------
+    # --- CREATE FRACTURE NETWORK AND MESH ---
+    # ----------------------------------------
+    network = gts.fracture_network(
+        shearzone_names=shearzone_names,
+        export=True,
+        path=isc_data_path,
+        domain=bounding_box,
+    )
+
+    gmsh_file_name = str(viz_folder_name / "gmsh_frac_file")
+    gb = network.mesh(mesh_args=mesh_args, file_name=gmsh_file_name)
+
+    gb_list = refine_mesh(
+        in_file=f'{gmsh_file_name}.geo',
+        out_file=f"{gmsh_file_name}.msh",
+        dim=3,
+        network=network,
+        num_refinements=n_refinements,
+    )
+
+    # TODO: Make this procedure "safe".
+    #   E.g. assign names by comparing normal vector and centroid.
+    #   Currently, we assume that fracture order is preserved in creation process.
+    #   This may be untrue if fractures are (completely) split in the process.
+    # Assign node prop 'name' to each grid in the grid bucket.
+    for gb in gb_list:
+        pp.contact_conditions.set_projections(gb)
+        gb.add_node_props(keys="name")
+        fracture_grids = gb.get_grids(lambda g: g.dim == gb.dim_max() - 1)
+        for i, sz_name in enumerate(shearzone_names):
+            gb.set_node_prop(fracture_grids[i], key="name", val=sz_name)
+            # Note: Use self.gb.node_props(g, 'name') to get value.
+
+    return gb_list
+
+
+def convergence_study():
+    """ Perform a convergence study of a given problem setup.
+    """
+
+    # 1. Step: Create n grids by uniform refinement.
+    # 2. Step: for grid i in list of n grids:
+    # 2. a. Step: Set up the mechanics model.
+    # 2. b. Step: Solve the mechanics problem.
+    # 2. c. Step: Keep the grid (with solution data)
+    # 3. Step: Let the finest grid be the reference solution.
+    # 4. Step: For every other grid:
+    # 4. a. Step: Map the solution to the fine grid, and compute error.
+    # 5. Step: Compute order of convergence, etc.
+
+    # -----------------
+    # --- ARGUMENTS ---
+    # -----------------
+    viz_folder_name = Path(os.path.abspath(__file__)).parent / "results/mech_convergence_2test"
+    if not os.path.exists(viz_folder_name):
+        os.makedirs(viz_folder_name, exist_ok=True)
+
+    shearzone_names = ["S1_1", "S1_2", "S1_3", "S3_1", "S3_2"]
+
+    mesh_size = 10
+    mesh_args = {  # A very coarse grid
+        "mesh_size_frac": mesh_size,
+        "mesh_size_min": mesh_size,
+        "mesh_size_bound": mesh_size,
+    }
+
+    bounding_box = {
+        "xmin": -6,
+        "xmax": 80,
+        "ymin": 55,
+        "ymax": 150,
+        "zmin": 0,
+        "zmax": 50,
+    }
+
+    # 1. Step: Create n grids by uniform refinement.
+    gb_list = create_isc_domain(
+        viz_folder_name=viz_folder_name,
+        shearzone_names=shearzone_names,
+        bounding_box=bounding_box,
+        mesh_args=mesh_args,
+        n_refinements=1,
+    )
+
+    scales = {
+        'scalar_scale': 1,
+        'length_scale': 1,
+    }
+    solver = 'direct'
+
+    # ---------------------------
+    # --- PHYSICAL PARAMETERS ---
+    # ---------------------------
+
+    stress = stress_tensor()
+
+    # ----------------------
+    # --- SET UP LOGGING ---
+    # ----------------------
+    print(viz_folder_name / "results.log")
+    logger = __setup_logging(viz_folder_name)
+
+    logger.info(f"Preparing setup for mechanics convergence study on {pendulum.now().to_atom_string()}")
+    logger.info(f"Reporting on {len(gb_list)} grid buckets.")
+    logger.info(f"Visualization folder path: \n {viz_folder_name}")
+    logger.info(f"Mesh arguments for coarsest grid: \n {mesh_args}")
+    logger.info(f"Bounding box: \n {bounding_box}")
+    logger.info(f"Variable scaling: \n {scales}")
+    logger.info(f"Solver type: {solver}")
+    logger.info(f"Stress tensor: \n {stress}")
+
+    # -----------------------
+    # --- SETUP AND SOLVE ---
+    # -----------------------
+
+    newton_options = {  # Parameters for Newton solver.
+        "max_iterations": 10,
+        "convergence_tol": 1e-10,
+        "divergence_tol": 1e5,
+    }
+    logger.info(f"Options for Newton solver: \n {newton_options}")
+
+    from GTS.isc_modelling.mechanics import ContactMechanicsISCWithGrid
+    for gb in gb_list:
+        setup = ContactMechanicsISCWithGrid(
+            viz_folder_name, 'main_run', 'linux', mesh_args, bounding_box,
+            shearzone_names, scales, stress, solver, gb,
+        )
+
+        logger.info("Setup complete. Starting simulation")
+        pp.run_stationary_model(setup, params=newton_options)
+        logger.info("Simulation complete. Exporting solution.")
+
+    return gb_list
 
 
 def stress_tensor():

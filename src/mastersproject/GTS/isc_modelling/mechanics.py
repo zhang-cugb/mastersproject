@@ -42,7 +42,7 @@ class ContactMechanicsISC(ContactMechanics):
             mesh_args: Mapping[str, int],
             bounding_box: Mapping[str, int],
             shearzone_names: List[str],
-            source_scalar_borehole_shearzone: Mapping[str, str],
+            # source_scalar_borehole_shearzone: Mapping[str, str],
             scales: Mapping[str, float],
             stress: np.ndarray,
             solver: str,
@@ -67,9 +67,9 @@ class ContactMechanicsISC(ContactMechanics):
             Required keys: 'xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax'.
         shearzone_names : List[str]
             Which shear-zones to include in simulation
-        source_scalar_borehole_shearzone : Mapping[str, str]
-            Which borehole and shear-zone intersection to do injection in.
-            Required keys: 'shearzone', 'borehole'
+        # source_scalar_borehole_shearzone : Mapping[str, str]
+        #     Which borehole and shear-zone intersection to do injection in.
+        #     Required keys: 'shearzone', 'borehole'
         scales : Mapping[str, float]
             Length scale and scalar variable scale.
             Required keys: 'scalar_scale', 'length_scale'
@@ -101,7 +101,7 @@ class ContactMechanicsISC(ContactMechanics):
         self.set_rock()
 
         # --- BOUNDARY, INITIAL, SOURCE CONDITIONS ---
-        self.source_scalar_borehole_shearzone = source_scalar_borehole_shearzone
+        # self.source_scalar_borehole_shearzone = source_scalar_borehole_shearzone
 
         # --- FRACTURES ---
         self.shearzone_names = shearzone_names
@@ -476,6 +476,39 @@ class ContactMechanicsISC(ContactMechanics):
         self.assembler.distribute_variable(solution)
         self.export_step()
 
+
+class ContactMechanicsISCWithGrid(ContactMechanicsISC):
+    """ Solve contact mechanics with a pre-existing grid.
+    """
+
+    def __init__(
+            self,
+            viz_folder_name: str,
+            result_file_name: str,
+            isc_data_path: str,
+            mesh_args: Mapping[str, int],
+            bounding_box: Mapping[str, int],
+            shearzone_names: List[str],
+            # source_scalar_borehole_shearzone: Mapping[str, str],
+            scales: Mapping[str, float],
+            stress: np.ndarray,
+            solver: str,
+            gb: pp.GridBucket
+    ):
+
+        super().__init__(viz_folder_name, result_file_name, isc_data_path, mesh_args, bounding_box, shearzone_names,
+                         scales, stress, solver)
+
+        self.gb = gb
+        self.Nd = gb.dim_max()
+
+    def create_grid(self, overwrite_grid=False):
+        # Overwrite method to ensure no new grid is created.
+        assert self.gb is not None
+        return
+
+
+# --- OLD FILES --- DEPRECATED ---
 
 class ContactMechanicsIsotropicISC(IsotropicSetup):
     def __init__(self, **kwargs):
