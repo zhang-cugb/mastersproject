@@ -62,7 +62,7 @@ def refine_mesh(
     gmsh.open(in_file)
     gmsh.model.mesh.generate(dim=dim)
     if out_file[-4:] == ".msh":
-        out_file = out_file[-4:]
+        out_file = out_file[:-4]
 
     # Save coarsest grid
     fname = f"{out_file}_0.msh"
@@ -130,7 +130,6 @@ def gb_coarse_fine_cell_mapping(
         mappings[node_num] = (g, g_ref, mapping)
 
     return mappings
-
 
 
 def coarse_fine_cell_mapping(g: pp.Grid, g_ref: pp.Grid, tol=1e-8):
