@@ -21,7 +21,11 @@ import numpy as np
 import scipy.sparse as sps
 
 
-def refine_mesh(in_file: str, out_file: str, dim: int, network: Union[pp.FractureNetwork3d, pp.FractureNetwork2d]):
+def refine_mesh(
+        in_file: str, out_file: str, dim: int,
+        network: Union[pp.FractureNetwork3d, pp.FractureNetwork2d],
+        num_refinements: int = 1,
+) -> List[pp.GridBucket]:
     """ Refine a mesh by splitting, using gmsh
 
     Parameters
@@ -29,11 +33,13 @@ def refine_mesh(in_file: str, out_file: str, dim: int, network: Union[pp.Fractur
     in_file : str
         path to .geo file to read
     out_file : str
-        path to new .msh file to store mesh in
+        path to new .msh file to store mesh in, excluding the ending '.msh'.
     dim : int {2, 3}
         Dimension of domain to mesh
     network : Union[pp.FractureNetwork2d, pp.FractureNetwork3d]
         PorePy class defining the fracture network that is described by the .geo in_file
+    num_refinements : int : Optional. Default = 1
+        Number of refinements
     """
 
     try:
@@ -46,8 +52,8 @@ def refine_mesh(in_file: str, out_file: str, dim: int, network: Union[pp.Fractur
             "export PYTHONPATH=${PYTHONPATH}:path/to/gmsh*-sdk.*/lib"
         )
 
-    if out_file[-4:] != ".msh":
-        out_file = f"{out_file}.msh"
+    from porepy.fracs.simplex import tetrahedral_grid_from_gmsh
+    from porepy.fracs.meshing import grid_list_to_grid_bucket
 
     assert os.path.isfile(in_file)
 
@@ -55,17 +61,28 @@ def refine_mesh(in_file: str, out_file: str, dim: int, network: Union[pp.Fractur
     gmsh.initialize()
     gmsh.open(in_file)
     gmsh.model.mesh.generate(dim=dim)
-    gmsh.model.mesh.refine()  # Refined grid
-    gmsh.write(out_file)
+    if out_file[-4:] == ".msh":
+        out_file = out_file[-4:]
+
+    # Save coarsest grid
+    fname = f"{out_file}_0.msh"
+    gmsh.write(fname)
+    grid_list_ref = tetrahedral_grid_from_gmsh(network=network, file_name=fname)
+    gb_list = [grid_list_to_grid_bucket(grid_list_ref)]
+
+    for i in range(num_refinements):
+        gmsh.model.mesh.refine()  # Refined grid
+
+        fname = f"{out_file}_{i+1}.msh"
+        gmsh.write(fname)
+
+        # Create grid bucket from refined grid output
+        grid_list_ref = tetrahedral_grid_from_gmsh(network=network, file_name=fname)
+        gb_ref = grid_list_to_grid_bucket(grid_list_ref)
+        gb_list.append(gb_ref.copy())
+
     gmsh.finalize()
-
-    # Create grid bucket from refined grid output
-    from porepy.fracs.simplex import tetrahedral_grid_from_gmsh
-    from porepy.fracs.meshing import grid_list_to_grid_bucket
-
-    grid_list_ref = tetrahedral_grid_from_gmsh(network=network, file_name=out_file)
-    gb_ref = grid_list_to_grid_bucket(grid_list_ref)
-    return gb_ref
+    return gb_list
 
 
 def gb_coarse_fine_cell_mapping(
@@ -209,7 +226,11 @@ def test_refine():
     gb = network.mesh(mesh_args=mesh_args, file_name=file_name)
 
     # Refine the mesh
-    gb_ref = refine_mesh(in_file=f'{file_name}.geo', out_file=f"{file_name}_refined.msh", dim=3, network=network)
+    gb_list = refine_mesh(
+        in_file=f'{file_name}.geo', out_file=f"{file_name}_refined.msh",
+        dim=3, network=network, num_refinements=1)
+
+    gb_ref = gb_list[-1]
 
     return gb, gb_ref
 
