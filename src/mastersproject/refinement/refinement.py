@@ -20,7 +20,15 @@ import porepy as pp
 import numpy as np
 import scipy.sparse as sps
 
+# --- LOGGING UTIL ---
+from util.logging_util import timer, trace
 
+logger = logging.getLogger(__name__)
+
+
+
+@timer
+@trace
 def refine_mesh(
         in_file: str, out_file: str, dim: int,
         network: Union[pp.FractureNetwork3d, pp.FractureNetwork2d],
@@ -85,6 +93,8 @@ def refine_mesh(
     return gb_list
 
 
+@timer
+@trace
 def gb_coarse_fine_cell_mapping(
         gb: pp.GridBucket, gb_ref: pp.GridBucket, tol=1e-8
 ) -> List[Tuple[pp.GridBucket, pp.GridBucket, sps.csc_matrix]]:
@@ -102,8 +112,9 @@ def gb_coarse_fine_cell_mapping(
     Returns
     -------
     mapping : list of tuples with entries (pp.GridBucket, pp.GridBucket, sps.csc_matrix)
-        The csc matrices are mappings from fine to coarse grid cells on the
-        first and second grid in the tuple, respectively.
+        The first entry is the coarse grid.
+        The second entry is the refined grid.
+        The third entry is the mapping from coarse to fine cells
     """
 
     grids = gb.get_grids()
@@ -132,6 +143,8 @@ def gb_coarse_fine_cell_mapping(
     return mappings
 
 
+@timer
+@trace
 def coarse_fine_cell_mapping(g: pp.Grid, g_ref: pp.Grid, tol=1e-8):
     """ Construct a mapping between cells of a grid and its refined version
 
@@ -166,18 +179,35 @@ def coarse_fine_cell_mapping(g: pp.Grid, g_ref: pp.Grid, tol=1e-8):
 
     cells_ref = g_ref.cell_centers.copy()  # Cell centers in fine grid
     test_cells_ptr = np.arange(g_ref.num_cells)  # Pointer to cell centers
+    nodes = g.nodes.copy()
 
-    if g.dim == 2:  # Pre-processing for efficiency
-        R = pp.map_geometry.project_plane_matrix(g.nodes, check_planar=True)
-        nodes = np.dot(R, g.nodes)[:2, :]
+    if g.dim == 1:
+        nodes = nodes.copy()
+        tangent = pp.map_geometry.compute_tangent(nodes)
+        reference = [1, 0, 0]
+        R = pp.map_geometry.project_line_matrix(nodes, tangent, tol=tol, reference=reference)
+        nodes = R.dot(nodes)[0, :]
+        cells_ref = R.dot(cells_ref)[0, :]
+
+    elif g.dim == 2:  # Pre-processing for efficiency
+        nodes = nodes.copy()
+        R = pp.map_geometry.project_plane_matrix(nodes, check_planar=False)
+        nodes = np.dot(R, nodes)[:2, :]
         cells_ref = np.dot(R, cells_ref)[:2, :]
 
-    for st, nd in slices:  # Loop through every coarse cell
+    # Loop through every coarse cell
+    for st, nd in slices:
 
         nodes_idx = cell_nodes.indices[st:nd]
         num_nodes = nodes_idx.size
 
-        if g.dim == 2:
+        if g.dim == 1:
+            assert (num_nodes == 2)
+            line = np.sort(nodes[nodes_idx])
+            test_points = cells_ref[test_cells_ptr]
+            in_poly = np.searchsorted(line, test_points, side='left') == 1
+
+        elif g.dim == 2:
             assert (num_nodes == 3), "We assume simplexes in 2D (i.e. 3 nodes)"
             polygon = nodes[:, nodes_idx]
             test_points = cells_ref[:, test_cells_ptr]
@@ -189,7 +219,7 @@ def coarse_fine_cell_mapping(g: pp.Grid, g_ref: pp.Grid, tol=1e-8):
             # Polyhedron defined as a list of nodes defining its (convex) faces.
             # Assumes simplexes: Every node except one defines every face.
             assert (num_nodes == 4), "We assume simplexes in 3D (i.e. 4 nodes)"
-            node_coords = g.nodes[:, nodes_idx]
+            node_coords = nodes[:, nodes_idx]
 
             ids = np.arange(num_nodes)
             polyhedron = [node_coords[:, ids != i] for i in np.arange(num_nodes)]
@@ -197,6 +227,10 @@ def coarse_fine_cell_mapping(g: pp.Grid, g_ref: pp.Grid, tol=1e-8):
             in_poly = pp.geometry_property_checks.point_in_polyhedron(
                 polyhedron=polyhedron, test_points=test_points, tol=tol
             )
+
+        else:
+            logger.warning(f"A grid of dimension {g.dim} encountered. Skip!")
+            continue
 
         # Update pointer to which cell centers to use as test points
         in_poly_ids = test_cells_ptr[in_poly]  # id of cells inside this polyhedron
@@ -212,6 +246,4 @@ def coarse_fine_cell_mapping(g: pp.Grid, g_ref: pp.Grid, tol=1e-8):
 
     assert (indices.size == g_ref.num_cells), "Every fine cell should be inside exactly one coarse cell"
     return coarse_fine
-
-
 
