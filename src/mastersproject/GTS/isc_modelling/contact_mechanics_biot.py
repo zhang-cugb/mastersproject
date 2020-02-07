@@ -23,7 +23,14 @@ from porepy.models.contact_mechanics_biot_model import ContactMechanicsBiot
 
 import GTS as gts
 
+# --- LOGGING UTIL ---
+from util.logging_util import timer, trace
 
+logger = logging.getLogger(__name__)
+
+
+# TODO: Re-introduce all scaling when it is properly understood.
+# TODO: Multiple inheritance from porepy and ContactMechanicsISC
 class ContactMechanicsBiotISC(ContactMechanicsBiot):
     """
 
