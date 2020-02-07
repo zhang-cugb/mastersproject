@@ -228,33 +228,26 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         return bc
 
     def bc_values_mechanics(self, g):
-        """ Stress values as ISC
-        Credits: PorePy paper"""
-        # Retrieve the boundaries where values are assigned
-        all_bf, east, west, north, south, top, bottom = self.domain_boundary_sides(g)
-        A = g.face_areas
-        # Domain centred at 480 m below surface
+        """ Mechanical stress values as ISC
+        """
+        # Retrieve the domain boundary
+        all_bf, *_ = self.domain_boundary_sides(g)
 
-        # Gravity acceleration
-        gravity = (
-                pp.GRAVITY_ACCELERATION
-                * self.rock.DENSITY
-                * self._depth(g.face_centers)
-                / self.scalar_scale
-        )
+        # We provide the integrated stress (i.e. traction)
+        A = g.face_areas
+
+        # Get outward facing normal vectors for domain boundary, weighted for face area
+        # 1. Get normal vectors on the boundary
+        bf_normals = g.face_normals[:, all_bf]
+        # 2. Adjust direction so they face outwards
+        flip_normal_to_outwards = np.where(g.cell_face_as_dense()[0, all_bf] >= 0, 1, -1)
+        outward_normals = bf_normals * flip_normal_to_outwards
+
+        # Boundary values
         bc_values = np.zeros((g.dim, g.num_faces))
-        # TODO: Compute the actual (unperturbed) stress tensor
-        # we, sn, bt = 9.2 * pp.MEGA * pp.PASCAL, 8.7 * pp.MEGA * pp.PASCAL, 13.1 * pp.MEGA * pp.PASCAL
-        # we, sn, bt = 7 / 8, 5 / 4, 1
-        # we = sn = bt = 9 * pp.MEGA * pp.PASCAL
-        we = sn = bt = 9
-        bc_values[0, west] = (we * gravity[west]) * A[west]
-        bc_values[0, east] = -(we * gravity[east]) * A[east]
-        bc_values[1, south] = (sn * gravity[south]) * A[south]
-        bc_values[1, north] = -(sn * gravity[north]) * A[north]
-        if self.Nd > 2:
-            bc_values[2, bottom] = (bt * gravity[bottom]) * A[bottom]
-            bc_values[2, top] = -(bt * gravity[top]) * A[top]
+
+        bf_stress = np.dot(self.stress, outward_normals)
+        bc_values[:, all_bf] = bf_stress * A[all_bf]
 
         faces = self.faces_to_fix(g)
         bc_values[:, faces] = 0
