@@ -90,18 +90,41 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         super().__init__(params=params)
 
         # Root name of solution files
-        self.file_name = result_file_name
+        # self.file_name = result_file_name
+        # Set file name of the pre-run first.
+        self.file_name = 'initialize_run'
 
         # Time
-        self._set_time_parameters()
+        self.prepare_initial_run()
+
+        # Initialize phase and injection rate
+        self.current_phase = 0
+        self.current_injection_rate = 0
 
         # Scaling coefficients
         self.scalar_scale = scales['scalar_scale']
         self.length_scale = scales['length_scale']
 
-        # Grid
-        self.gb = None
-        self.Nd = None
+        # --- PHYSICAL PARAMETERS ---
+        self.stress = stress
+        self.set_rock_and_fluid()
+
+        self.transmissivity = {
+            'S1_1': 1e-12 * pp.METER ** 2 / pp.SECOND,
+            'S1_2': 1e-12 * pp.METER ** 2 / pp.SECOND,
+            'S1_3': 1e-12 * pp.METER ** 2 / pp.SECOND,
+            'S3_1': 1e-6 * pp.METER ** 2 / pp.SECOND,
+            'S3_2': 1e-6 * pp.METER ** 2 / pp.SECOND,
+            None: 1e-14 * pp.METER ** 2 / pp.SECOND,  # 3D matrix
+        }
+        self.aquifer_thickness = {
+            'S1_1': 1000 * pp.MILLI * pp.METER,
+            'S1_2': 1000 * pp.MILLI * pp.METER,
+            'S1_3': 1000 * pp.MILLI * pp.METER,
+            'S3_1': 170 * pp.MILLI * pp.METER,
+            'S3_2': 170 * pp.MILLI * pp.METER,
+            None: 1,  # 3D matrix
+        }
 
         # --- BOUNDARY, INITIAL, SOURCE CONDITIONS ---
         self.source_scalar_borehole_shearzone = source_scalar_borehole_shearzone
@@ -322,68 +345,78 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         Gravity term.
         Credits: PorePy paper
         """
-        values = np.zeros((self.Nd, g.num_cells))
-        values[2] = (
-                pp.GRAVITY_ACCELERATION
-                * self.rock.DENSITY
-                * g.cell_volumes
-                * self.length_scale
-                / self.scalar_scale
-        )
-        return values.ravel("F")
+        # TODO: Gravity term.
+        # values = np.zeros((self.Nd, g.num_cells))
+        # values[2] = (
+        #         pp.GRAVITY_ACCELERATION
+        #         * self.rock.DENSITY
+        #         * g.cell_volumes
+        #         * self.length_scale
+        #         / self.scalar_scale
+        # )
+        # return values.ravel("F")
+        return np.zeros(self.Nd * g.num_cells)
 
-    def compute_aperture(self, g):
-        """ Compute aperture"""
-        # TODO: Set aperture from transmissibilities.
-        apertures = np.ones(g.num_cells)
+    def permeability_from_transmissivity(self, T, b, theta=None):
+        """ Compute permeability [m2] from transmissivity [m2/s]
+
+        We can relate permeability, k [m2] with transmissivity, T [m2/s]
+        through the relation
+        k = T * mu / (rho * g * b)
+        where mu is dynamic viscosity [Pa s], rho is density [kg/m3],
+        g in gravitational acceleration [m/s2] and b is aquifer thickness [m]
+
+        Assumes that self.fluid is set
+        """
+        mu = self.fluid.dynamic_viscosity(theta=theta)
+        rho = self.fluid.density(theta=theta)
+        g = pp.GRAVITY_ACCELERATION
+        k = T * mu / (rho * g * b)
+        return k
+
+    def grid_permeability_from_transmissivity(self, g, theta=None):
+        """ Wrapper for permeability_from_transmissivity
+        Returns the uniform permeability over the grid g (np.array of size g.num_cells)
+        """
         shearzone = self.gb.node_props(g, 'name')
-        # The mean measured aperture per shear-zone.
-        mean_apertures = {'S1_1': 1026 * pp.MILLI * pp.METER,
-                          'S1_2': 909.5 * pp.MILLI * pp.METER,
-                          'S1_3': 1634 * pp.MILLI * pp.METER,
-                          'S3_1': 180 * pp.MILLI * pp.METER,
-                          'S3_2': 159 * pp.MILLI * pp.METER,
-                          None: 1,  # 3D matrix
-                          }
-        apertures *= mean_apertures[shearzone] / self.length_scale
-        return apertures
+        T = self.transmissivity[shearzone]
+        b = self.aquifer_thickness[shearzone]
+        permeability = self.permeability_from_transmissivity(T, b, theta=theta)
+        return permeability * np.ones(g.num_cells)
 
-    def set_permeability_from_aperture(self):
+    def set_permeability_from_transmissivity(self):
+        """ Set permeability in fracture and matrix from transmissivity
+
+        The formula,
+        k = T * mu / (rho * g * b)
+        where b is aquifer thickness, and T is transmissivity (see above)
+        is used.
+
+        In shear zones, we use its thickness as b.
+        In the 3D rock matrix, we use 1.
         """
-        Cubic law in fractures, rock permeability in the matrix.
-        Credits: PorePy paper
-        """
-        # TODO: Find a valid alternative to cubic law.
-        viscosity = self.fluid.dynamic_viscosity() / self.scalar_scale
+
+        viscosity = self.fluid.dynamic_viscosity()  # / self.scalar_scale
         gb = self.gb
         for g, d in gb:
-            if g.dim < self.Nd:
-                # Use cubic law in fractures
-                apertures = self.compute_aperture(g)
-                apertures_unscaled = apertures * self.length_scale
-                k = np.power(apertures_unscaled, 2) / 12
-                # Multiply with the cross-sectional area, which equals the apertures
-                # for 2d fractures in 3d
-                k *= apertures
-                kxx = k / viscosity / self.length_scale ** 2
-            else:
-                # Use the rock permeability in the matrix
-                kxx = (
-                        self.rock.PERMEABILITY
-                        / viscosity
-                        * np.ones(g.num_cells)
-                        / self.length_scale ** 2
-                )
+            k = self.grid_permeability_from_transmissivity(g)
 
-            K = pp.SecondOrderTensor(kxx)
-            d[pp.PARAMETERS][self.scalar_parameter_key]["second_order_tensor"] = K
+            kxx = (
+                    k / viscosity  # / self.length_scale ** 2
+            )
 
+            k_tensor = pp.SecondOrderTensor(kxx)
+            d[pp.PARAMETERS][self.scalar_parameter_key]["second_order_tensor"] = k_tensor
+
+        # TODO: Understand how permeability works on the mortar grid.
         # Normal permeability inherited from the neighboring fracture g_l
         for e, d in gb.edges():
             mg = d["mortar_grid"]
             g_l, _ = gb.nodes_of_edge(e)
             data_l = gb.node_props(g_l)
-            a = self.compute_aperture(g_l)
+
+            a = self.grid_aperture_from_transmissivity(g_l)
+
             # We assume isotropic permeability in the fracture, i.e. the normal
             # permeability equals the tangential one
             k_s = data_l[pp.PARAMETERS][self.scalar_parameter_key][
@@ -391,9 +424,104 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
             ].values[0, 0]
             # Division through half the aperture represents taking the (normal) gradient
             kn = mg.slave_to_mortar_int() * np.divide(k_s, a / 2)
-            pp.initialize_data(
-                mg, d, self.scalar_parameter_key, {"normal_diffusivity": kn}
-            )
+            d = pp.initialize_data(
+                e, d, self.scalar_parameter_key, {"normal_diffusivity": kn}
+            )  # TODO: Check if it should be mg
+
+    def aperture_from_transmissivity(self, T, b, theta=None):
+        """ Compute hydraulic aperture [m] from transmissivity [m2/s]
+
+        We use the following relation (derived from cubic law):
+        a = sqrt( 12 * mu * T / (rho * g * b) )
+        where mu is dynamic viscosity [Pa s], rho is density [kg/m3],
+        g is gravitational acceleration [m/s2], and b is aquifer thickness [m]
+
+        Assumes that self.fluid is set
+        """
+        mu = self.fluid.dynamic_viscosity(theta=theta)
+        rho = self.fluid.density(theta=theta)
+        g = pp.GRAVITY_ACCELERATION
+        hydraulic_aperture = np.sqrt(12 * mu * T / (rho * g * b))
+        return hydraulic_aperture
+
+    def grid_aperture_from_transmissivity(self, g: pp.Grid, theta=None):
+        """ Grid wrapper for aperture_from_transmissivity
+        Returns the uniform aperture over the grid g (np.array of size g.num_cells)
+        """
+        shearzone = self.gb.node_props(g, 'name')
+        T = self.transmissivity[shearzone]
+        b = self.aquifer_thickness[shearzone]
+        aperture = self.aperture_from_transmissivity(T, b, theta=theta)
+        return aperture * g.num_cells
+
+    # def compute_aperture(self, g):
+    #     """ Compute aperture
+    #     Units: [m]
+    #     Returns scaled apertures (divided by self.length_scale)
+    #     """
+    #     apertures = np.ones(g.num_cells)
+    #     shearzone = self.gb.node_props(g, 'name')
+    #     # The mean measured aperture per shear-zone.
+    #
+    #     apertures *= mean_apertures[shearzone] / self.length_scale
+    #     return apertures
+
+    # def set_permeability_from_aperture(self):
+    #     """
+    #     Cubic law in fractures, rock permeability in the matrix.
+    #     Credits: PorePy paper
+    #
+    #     # TODO: Note, we do not use this at the moment.
+    #     """
+    #     viscosity = self.fluid.dynamic_viscosity() / self.scalar_scale
+    #     gb = self.gb
+    #     for g, d in gb:
+    #         # Retrieve transmissivity and thickness for the fracture.
+    #         shearzone = self.gb.node_props(g, 'name')
+    #         T = self.transmissivity[shearzone]
+    #         b = self.aquifer_thickness[shearzone]
+    #
+    #         if g.dim < self.Nd:
+    #             # Use cubic law in fractures
+    #             apertures = self.compute_aperture(g)
+    #             apertures_unscaled = apertures * self.length_scale
+    #             k = np.power(apertures_unscaled, 2) / 12
+    #             # Multiply with the cross-sectional area, which equals the apertures
+    #             # for 2d fractures in 3d
+    #             k *= apertures
+    #             kxx = k / viscosity / self.length_scale ** 2
+    #         else:
+    #             # Use the rock permeability in the matrix
+    #             kxx = (
+    #                     self.rock.PERMEABILITY
+    #                     / viscosity
+    #                     * np.ones(g.num_cells)
+    #                     / self.length_scale ** 2
+    #             )
+    #
+    #         K = pp.SecondOrderTensor(kxx)
+    #         d[pp.PARAMETERS][self.scalar_parameter_key]["second_order_tensor"] = K
+    #
+    #     # Normal permeability inherited from the neighboring fracture g_l
+    #     for e, d in gb.edges():
+    #         mg = d["mortar_grid"]
+    #         g_l, _ = gb.nodes_of_edge(e)
+    #         data_l = gb.node_props(g_l)
+    #         a = self.compute_aperture(g_l)
+    #         # We assume isotropic permeability in the fracture, i.e. the normal
+    #         # permeability equals the tangential one
+    #         k_s = data_l[pp.PARAMETERS][self.scalar_parameter_key][
+    #             "second_order_tensor"
+    #         ].values[0, 0]
+    #         # Division through half the aperture represents taking the (normal) gradient
+    #         kn = mg.slave_to_mortar_int() * np.divide(k_s, a / 2)
+    #
+    #         # pp.initialize_data(
+    #         #     mg, d, self.scalar_parameter_key, {"normal_diffusivity": kn}
+    #         # )
+    #         data_edge = pp.initialize_data(
+    #             e, d, self.scalar_parameter_key, {"normal_diffusivity": kn},
+    #         )
 
     def set_rock_and_fluid(self):
         """
