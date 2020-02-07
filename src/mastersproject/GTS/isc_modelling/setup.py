@@ -36,10 +36,195 @@ def __setup_logging(path, log_fname="results.log"):
     fh = logging.FileHandler(path + "/" + log_fname)
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(logging.Formatter(logging.BASIC_FORMAT))
-    logger.addHandler(fh)
-    return logger
+
+    gts_logger.addHandler(fh)
+    pp_logger.addHandler(fh)
 
 
+@timer
+@trace
+def run_biot_model(
+        *,
+        viz_folder_name: str = None,
+        result_file_name: str = None,
+        isc_data_path: str = None,
+        mesh_args: Mapping[str, int] = None,
+        bounding_box: Mapping[str, int] = None,
+        shearzone_names: List[str] = None,
+        source_scalar_borehole_shearzone: Mapping[str, str] = None,
+        scales: Mapping[str, float] = None,
+):
+    """ Send all initialization parameters to contact mechanics biot class
+
+        Parameters
+        ----------
+        viz_folder_name : str
+            Absolute path to folder where grid and results will be stored
+            Default: /home/haakon/mastersproject/src/mastersproject/GTS/isc_modelling/results/default
+        result_file_name : str
+            Root name for simulation result files
+            Default: 'main_run'
+        isc_data_path : str
+            Path to isc data: path/to/GTS/01BasicInputData
+            Alternatively 'linux' or 'windows' for certain default paths (only applies to haakon's computers).
+            Default: 'linux'
+        mesh_args : Mapping[str, int]
+            Arguments for meshing of domain.
+            Required keys: 'mesh_size_frac', 'mesh_size_min, 'mesh_size_bound'
+        bounding_box : Mapping[str, int]
+            Bounding box of domain
+            Required keys: 'xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax'.
+        shearzone_names : List[str]
+            Which shear-zones to include in simulation
+        source_scalar_borehole_shearzone : Mapping[str, str]
+            Which borehole and shear-zone intersection to do injection in.
+            Required keys: 'shearzone', 'borehole'
+        scales : Mapping[str, float]
+            Length scale and scalar variable scale.
+            Required keys: 'scalar_scale', 'length_scale'
+            Defaults to 1 for both.
+        """
+    # ------------------------------------------
+    # --- FOLDER AND FILE RELATED PARAMETERS ---
+    # ------------------------------------------
+
+    # TODO: Create different folders for each phase.
+    # Set viz folder
+    if viz_folder_name is None:
+        viz_folder_name = (
+            "/home/haakon/mastersproject/src/mastersproject/GTS/isc_modelling/results/new_biot/default"
+        )
+    viz_folder_name = str(viz_folder_name)
+    # Create viz folder path if it does not already exist
+    if not os.path.exists(viz_folder_name):
+        os.makedirs(viz_folder_name, exist_ok=True)
+
+    # Set up logging
+    __setup_logging(viz_folder_name)
+    # logging.basicConfig(filename=viz_folder_name + "/results.log", level=logging.DEBUG)
+    logger = logging.getLogger(__name__)
+    logger.info(f"Preparing setup for mechanics simulation on {pendulum.now().to_atom_string()}")
+    logger.info(f"Visualization folder path: \n {viz_folder_name}")
+
+    # Set file name of modelling results files
+    # if result_file_name is None:
+    #     result_file_name = 'main_run'
+    # logger.info(f"Root file name of results: {result_file_name}")
+
+    # Get data path to ISC data
+    if isc_data_path is None:
+        isc_data_path = 'linux'
+
+    # ------------------------------------
+    # --- MODELLING RELATED PARAMETERS ---
+    # ------------------------------------
+
+    # Set mesh arguments
+    if mesh_args is None:
+        # mesh_size = 10
+        # mesh_args = {  # A very coarse grid
+        #     "mesh_size_frac": mesh_size,
+        #     "mesh_size_min": mesh_size,
+        #     "mesh_size_bound": mesh_size,
+        # }
+        sz = 10
+        mesh_args = {'mesh_size_frac': sz,
+                     'mesh_size_min': 0.1 * sz,
+                     'mesh_size_bound': 6 * sz}
+    logger.info(f"Mesh arguments: \n {mesh_args}")
+
+    # Set bounding box
+    if bounding_box is None:
+        bounding_box = {
+            "xmin": -6,
+            "xmax": 80,
+            "ymin": 55,
+            "ymax": 150,
+            "zmin": 0,
+            "zmax": 50,
+        }
+    logger.info(f"Bounding box: \n {bounding_box}")
+
+    # Set which shear-zones to include in simulation
+    if shearzone_names is None:
+        shearzone_names = ["S1_1", "S1_2", "S1_3", "S3_1", "S3_2"]
+    logger.info(f"Shear zones in simulation: \n {shearzone_names}")
+
+    # Set length scale and scalar scale
+    if scales is None:
+        scales = {
+            'scalar_scale': 1,
+            'length_scale': 1,
+        }
+    logger.info(f"Variable scaling: \n {scales}")
+
+    # Set solver. 'pyamg' or 'direct'.
+    solver = 'direct'
+    logger.info(f"Solver type: {solver}")
+
+    # Set which borehole / shearzone to inject fluid to
+    # This corresponds to setup in HS2 from Doetsch et al 2018
+    if source_scalar_borehole_shearzone is None:
+        source_scalar_borehole_shearzone = {
+            "shearzone": "S1_2",
+            "borehole": "INJ1",
+        }
+    logger.info(f"Injection location: \n {source_scalar_borehole_shearzone}")
+
+    # TODO: Set custom time parameters with a class with only one method: _set_time_parameters.
+    #  Currently, this is set to something pre-determined within the ContactMechanicsBiotISC class.
+
+    # ---------------------------
+    # --- PHYSICAL PARAMETERS ---
+    # ---------------------------
+
+    stress = stress_tensor()
+    logger.info(f"Stress tensor: \n {stress}")
+    # -------------------
+    # --- SETUP MODEL ---
+    # -------------------
+
+    setup = gts.ContactMechanicsBiotISC(
+        viz_folder_name=viz_folder_name,
+        # result_file_name=result_file_name,
+        isc_data_path=isc_data_path,
+        mesh_args=mesh_args,
+        bounding_box=bounding_box,
+        shearzone_names=shearzone_names,
+        source_scalar_borehole_shearzone=source_scalar_borehole_shearzone,
+        scales=scales,
+        stress=stress,
+        solver=solver,
+    )
+    # -------------------------
+    # --- SOLVE THE PROBLEM ---
+    # -------------------------
+    default_options = {  # Parameters for Newton solver.
+        "max_iterations": 10,
+        "nl_convergence_tol": 0.98,  # WARNING: VERY HIGH CONVERGENCE TOL !!!!!!!!!!!!!!!!!!!!!!!!!!!
+        "nl_divergence_tol": 1e5,
+    }
+    newton_options = default_options
+    logger.info(f"Options for Newton solver: \n {newton_options}")
+
+    logger.info("Setup complete. Starting time-dependent simulation")
+    pp.run_time_dependent_model(setup=setup, params=default_options)
+    logger.info(f"Simulation complete. Exporting solution. Time: {pendulum.now().to_atom_string()}")
+
+    # Stimulation phase
+    logger.info(f"Starting stimulation phase at time: {pendulum.now().to_atom_string()}")
+    setup.prepare_main_run()
+
+    logger.info("Setup complete. Starting time-dependent simulation")
+    pp.run_time_dependent_model(setup=setup, params=default_options)
+    logger.info(f"Simulation complete. Exporting solution. Time: {pendulum.now().to_atom_string()}")
+
+    logger.info(f"Exits method on {pendulum.now().to_atom_string()}")
+    return setup
+
+
+@timer
+@trace
 def run_mechanics_model(
         *,
         viz_folder_name: str = None,
