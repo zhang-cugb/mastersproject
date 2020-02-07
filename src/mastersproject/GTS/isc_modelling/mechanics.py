@@ -225,6 +225,9 @@ class ContactMechanicsISC(ContactMechanics):
         # Retrieve the domain boundary
         all_bf, *_ = self.domain_boundary_sides(g)
 
+        # We provide the integrated stress (i.e. traction)
+        A = g.face_areas
+
         # Get outward facing normal vectors for domain boundary, weighted for face area
         # 1. Get normal vectors on the boundary
         bf_normals = g.face_normals[:, all_bf]
@@ -236,7 +239,7 @@ class ContactMechanicsISC(ContactMechanics):
         bc_values = np.zeros((g.dim, g.num_faces))
 
         bf_stress = np.dot(self.stress, outward_normals)
-        bc_values[:, all_bf] = bf_stress
+        bc_values[:, all_bf] = bf_stress * A[all_bf]
 
         faces = self.faces_to_fix(g)
         bc_values[:, faces] = 0
