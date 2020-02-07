@@ -109,8 +109,8 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.current_injection_rate = 0
 
         # Scaling coefficients
-        self.scalar_scale = scales['scalar_scale']
-        self.length_scale = scales['length_scale']
+        self.scalar_scale = 1  # scales['scalar_scale']
+        self.length_scale = 1  # scales['length_scale']
 
         # --- PHYSICAL PARAMETERS ---
         self.stress = stress
@@ -231,7 +231,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         """
         all_bf, *_ = self.domain_boundary_sides(g)
         faces = self.faces_to_fix(g)
-        bc = pp.BoundaryConditionVectorial(g, faces, "dir")
+        bc = pp.BoundaryConditionVectorial(g, faces, ["dir"] * faces.size)
         frac_face = g.tags["fracture_faces"]
         bc.is_neu[:, frac_face] = False
         bc.is_dir[:, frac_face] = True
@@ -272,18 +272,17 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         all_bf, *_ = self.domain_boundary_sides(g)
         bc_values = np.zeros(g.num_faces)
         depth = self._depth(g.face_centers[:, all_bf])
-        bc_values[all_bf] = self.fluid.hydrostatic_pressure(depth) / self.scalar_scale
+        bc_values[all_bf] = self.fluid.hydrostatic_pressure(depth)  # / self.scalar_scale
         # return bc_values
         return np.zeros(g.num_faces)
 
     def bc_type_scalar(self, g):
         """ Known boundary conditions (Dirichlet)
         """
-        # TODO: Hydrostatic scalar BC's (type).
         # Define boundary regions
         all_bf, *_ = self.domain_boundary_sides(g)
         # Define boundary condition on faces
-        return pp.BoundaryCondition(g, all_bf, "dir")
+        return pp.BoundaryCondition(g, all_bf, ["dir"] * all_bf.size)
 
     def source_flow_rate(self):
         """
@@ -540,29 +539,29 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         We ignore all temperature effects.
         Credits: PorePy paper
         """
-        self.rock = pp.Granite()
 
-        # Lame parameters
-        self.rock.YOUNG_MODULUS = 20.0 * pp.GIGA * pp.PASCAL
-        self.rock.POISSON_RATIO = 0.33
+        # Rock
+        class GrimselGranodiorite(pp.UnitRock):
+            def __init__(self):
+                super().__init__()
 
-        def lam_from(E, v):
-            return E * v / ((1 + v) * (1 - 2 * v))
+                self.THERMAL_EXPANSION = 1
+                self.DENSITY = 2700 * pp.KILOGRAM / (pp.METER ** 3)
 
-        def mu_from(E, v):
-            return E / (2 * (1 + v))
+                # Lamé parameters
+                self.YOUNG_MODULUS = 49 * pp.GIGA * pp.PASCAL  # Krietsch et al 2018 (Data Descriptor) - Dynamic E
+                self.POISSON_RATIO = 0.32  # Krietsch et al 2018 (Data Descriptor) - Dynamic Poisson
+                self.LAMBDA, self.MU = pp.params.rock.lame_from_young_poisson(
+                    self.YOUNG_MODULUS, self.POISSON_RATIO
+                )
 
-        self.rock.LAMBDA = lam_from(self.rock.YOUNG_MODULUS, self.rock.POISSON_RATIO)
-        self.rock.MU = mu_from(self.rock.YOUNG_MODULUS, self.rock.POISSON_RATIO)
+                self.FRICTION_COEFFICIENT = 0.4
+                self.POROSITY = 0.7 / 100
 
-        self.rock.FRICTION_COEFFICIENT = 0.2
-        self.rock.POROSITY = 0.7 / 100
+        self.rock = GrimselGranodiorite()
 
-        self.fluid = pp.Water()
-        # The permeability is for the intact rock
-        self.rock.PERMEABILITY = 5e-19
-        # Initial hydraulic aperture in m
-        self.initial_aperture = 1e-3 / self.length_scale
+        # Fluid. Temperature at ISC is 11 degrees average.
+        self.fluid = pp.Water(theta_ref=11)
 
     def set_mu(self, g):
         """ Set mu
@@ -580,17 +579,23 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         """
         return np.ones(g.num_cells) * self.rock.LAMBDA
 
-    def set_mechanics_parameters(self):
+    def _set_friction_coefficient(self, g):
+        """ The friction coefficient is uniform, and equal to 1.
+
+        Assumes self.set_rock_and_fluid() is called
         """
-        Set the parameters for the simulation.
+        return np.ones(g.num_cells) * self.rock.FRICTION_COEFFICIENT
+
+    def set_mechanics_parameters(self):
+        """ Set mechanics parameters for the simulation.
         """
         gb = self.gb
 
         for g, d in gb:
             if g.dim == self.Nd:
                 # Rock parameters
-                lam = self.set_lam(g) / self.scalar_scale
-                mu = self.set_mu(g) / self.scalar_scale
+                lam = self.set_lam(g)  # / self.scalar_scale
+                mu = self.set_mu(g)  # / self.scalar_scale
                 C = pp.FourthOrderTensor(mu, lam)
 
                 # Define boundary condition
@@ -626,8 +631,43 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
             mg = d["mortar_grid"]
             pp.initialize_data(mg, d, self.mechanics_parameter_key)
 
-    # TODO: Overwrite set_scalar_parameters() method from parent
-    #  to adjust mass_weight.
+    def set_scalar_parameters(self):
+        """ Set scalar parameters for the simulation
+        """
+        gb = self.gb
+
+        compressibility = self.fluid.COMPRESSIBILITY  # Units [1/Pa]
+        porosity = self.rock.POROSITY
+        for g, d in gb:
+            # specific volume
+            aperture = self.grid_aperture_from_transmissivity(g)
+            specific_volume = np.power(aperture, self.Nd - g.dim)
+
+            # Boundary and source conditions
+            bc = self.bc_type_scalar(g)
+            bc_values = self.bc_values_scalar(g)
+            source_values = self.source_scalar(g)
+
+            # Biot alpha
+            alpha = self.biot_alpha(g)
+
+            # Initialize data
+            pp.initialize_data(
+                g,
+                d,
+                self.scalar_parameter_key,
+                {
+                    "bc": bc,
+                    "bc_values": bc_values,
+                    "mass_weight": compressibility * porosity * specific_volume,
+                    "biot_alpha": alpha,
+                    "source": source_values,
+                    "time_step": self.time_step,
+                },
+            )
+
+        # Set permeability on grid, fracture and mortar grids.
+        self.set_permeability_from_transmissivity()
 
     def set_viz(self):
         """ Set exporter for visualization """
@@ -746,6 +786,41 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         """ Implementation of export pvd"""
         self.viz.write_pvd(self.export_times)
 
+    def initial_condition(self):
+        """
+        Initial guess for Newton iteration, scalar variable and bc_values (for time
+        discretization).
+
+        When stimulation phase is reached, we use displacements of last solution in
+        initialize phase as initial condition for the cell displacements.
+        """
+        super().initial_condition()
+
+        if self.current_phase > 0:  # Stimulation phase
+
+            for g, d in self.gb:
+                if g.dim == self.Nd:
+                    initial_displacements = d["initial_cell_displacements"]
+                    pp.set_state(d, {self.displacement_variable: initial_displacements})
+
+            for e, d in self.gb.edges():
+                if e[0].dim == self.Nd:
+                    try:
+                        initial_displacements = d["initial_cell_displacements"]
+                    except KeyError:
+                        logger.warning("We got KeyError on d['initial_cell_displacements'].")
+                        mg = d["mortar_grid"]
+                        initial_displacements = np.zeros(mg.num_cells * self.Nd)
+                    state = {
+                        self.mortar_displacement_variable: initial_displacements,
+                        "previous_iterate": {
+                            self.mortar_displacement_variable: initial_displacements,
+                        },
+                    }
+                    pp.set_state(d, state)
+
+    @timer
+    @trace
     def before_newton_loop(self):
         """ Will be run before entering a Newton loop.
         E.g.
@@ -1011,7 +1086,8 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         Unscaled depth. We center the domain at 480m below the surface.
         (See Krietsch et al, 2018a)
         """
-        return 480.0 * pp.METER - self.length_scale * coords[2]
+        return 480.0 * pp.METER * coords[2]
+        # return 480.0 * pp.METER - self.length_scale * coords[2]
 
     def _is_nonlinear_problem(self):
         """
