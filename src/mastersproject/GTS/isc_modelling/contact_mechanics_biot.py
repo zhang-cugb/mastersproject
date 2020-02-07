@@ -287,11 +287,19 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
 
     def source_flow_rate(self):
         """
-        Rate given in l / min = m^3/s * 1e-3 / 60.
-        Length scaling needed to convert from the scaled length to m.
+
+        [From Grimsel Experiment Description]:
+
+        We simulate one part of the injection procedure (Phase 3).
+        In this phase, they inject by flow rate.
+        Four injection steps of 10, 15, 20 and 25 l/min, each for 10 minutes.
+
+        Afterwards, the system is shut-in for 40 minutes.
         """
-        liters = 10
-        return liters * pp.MILLI * (pp.METER / self.length_scale) ** self.Nd / pp.MINUTE
+        self.simulation_protocol()
+        injection_rate = self.current_injection_rate
+        return injection_rate * pp.MILLI * pp.METER ** self.Nd
+        # return injection_rate * pp.MILLI * (pp.METER / self.length_scale) ** self.Nd
 
     def well_cells(self):
         """
@@ -773,27 +781,118 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.after_simulation()
         return self
 
+
+    def prepare_initial_run(self):
         """
+        Set time parameters for the preparation phase
+
+        First, we run no flow for 6 hours to observe deformation due to mechanics itself.
+        Then, [from Grimsel Experiment Description]:
+        flow period is 40 minutes, followed by a shut-in period of 40 minutes.
+        """
+
+        # For the initialization phase, we use the following
+        # start time
+        self.time = - 6 * pp.HOUR
+        # time step
+        self.time_step = 3 * pp.HOUR
+        # end time
+        self.end_time = 0
+
+        # self.time_step = 30 * pp.MINUTE
+
+    def prepare_main_run(self):
+        """ Adjust parameters between initial run and main run
+
+        Total time: 80 minutes.
+        Time step: 5 minutes
+        """
+
+        # New file name for this run
+        self.file_name = 'main_run'
+        self.set_viz()
+
+        # We use the following time parameters
+        # start time
         self.time = 0
-        self.time_step = 1 * pp.DAY
-        self.end_time = 4 * pp.DAY
-        # Set initial time step
-        self.initial_time_step = self.time_step
+        # time step
+        self.time_step = 5 * pp.MINUTE
+        # end time
+        self.end_time = 40 * pp.MINUTE  # TODO: Change back to 40 minutes.
 
-        # num_steps = 2
-        # self.time_step = 1 * self.length_scale ** 2
-        # self.end_time = self.time_step * (num_steps - 1)
-        # self.time_steps_array = np.linspace(start=0, stop=self.end_time, num=num_steps)
-        # self.step_count = np.arange(len(self.time_steps_array))
-        # self.current_step = self.step_count[0]
+        # Store initial displacements
+        for g, d in self.gb:
+            if g.dim == 3:
+                u = d[pp.STATE][self.displacement_variable]
+                d["initial_cell_displacements"] = u
 
+        for e, d in self.gb.edges():
+            if e[0].dim == self.Nd:
+                u = d[pp.STATE][self.mortar_displacement_variable]
+
+
+                d["initial_cell_displacements"] = u
+
+    def simulation_protocol(self):
+        """ Adjust time step and other parameters for simulation protocol
+
+                Here, we consider Doetsch et al (2018) [see e.g. p. 78/79 or App. J]
+                Hydro Shearing Protocol:
+                * Injection Cycle 3:
+                    - Four injection steps of 10, 15, 20 and 25 l/min
+                    - Each step lasts 10 minutes.
+                    - Then, the interval is shut-in and monitored for 40 minutes.
+                    - Venting was forseen at 20 minutes
+
+                For this setup, we only consider Injection Cycle 3.
+
+                Attributes set here:
+                    current_phase : int
+                        phase as a number (0 - 5)
+                    current_injection_rate : float
+                        fluid injection rate (l/min)
+                """
+        time_intervals = [
+            # Phase 0: 0 l/min
+            0,
+            # Phase 1: 10 l/min
+            10 * pp.MINUTE,
+            # Phase 2: 15 l/min
+            20 * pp.MINUTE,
+            # Phase 3: 20 l/min
+            30 * pp.MINUTE,
+            # Phase 4: 25 l/min
+            40 * pp.MINUTE,
+            # Phase 5: 0 l/min
+        ]
+
+        injection_amount = [
+            0,      # Phase 0
+            10,     # Phase 1
+            15,     # Phase 2
+            20,     # Phase 3
+            25,     # Phase 4
+            0,      # Phase 5
+        ]
+        next_phase = np.searchsorted(time_intervals, self.time, side='right')
+        if next_phase > self.current_phase:
+            logger.info(f"A new phase has started: Phase {next_phase}")
+
+        # Current phase number:
+        self.current_phase = next_phase
+
+        # Current injection amount [litres / second]
+        self.current_injection_rate = injection_amount[self.current_phase] / pp.MINUTE
+
+    @timer
+    @trace
     def prepare_simulation(self):
         """ Is run prior to a time-stepping scheme. Use this to initialize
         discretizations, linear solvers etc.
 
 
         ONLY CHANGE FROM PARENT:
-        - Set self.viz with custome method.
+        - Set self.viz with custom method.
         """
         self.create_grid()
         self.Nd = self.gb.dim_max()
