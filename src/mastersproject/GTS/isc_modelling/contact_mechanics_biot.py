@@ -39,16 +39,19 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         Scale of lengths
 
     """
+
     def __init__(
             self,
             viz_folder_name: str,
-            result_file_name: str,
+            # result_file_name: str,
             isc_data_path: str,
             mesh_args: Mapping[str, int],
             bounding_box: Mapping[str, int],
             shearzone_names: List[str],
             source_scalar_borehole_shearzone: Mapping[str, str],
             scales: Mapping[str, float],
+            stress: np.ndarray,
+            solver: str,
     ):
         """ Initialize the Contact Mechanics Biot
 
@@ -56,8 +59,8 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         ----------
         viz_folder_name : str
             Absolute path to folder where grid and results will be stored
-        result_file_name : str
-            Root name for simulation result files
+        # result_file_name : str
+        #     Root name for simulation result files
         isc_data_path : str
             Path to isc data: path/to/GTS/01BasicInputData
             Alternatively 'linux' or 'windows' for certain default paths (only applies to haakon's computers).
@@ -80,7 +83,11 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.name = "contact mechanics biot on ISC dataset"
         logging.info(f"Running: {self.name}")
 
-        super().__init__(params={'folder_name': viz_folder_name})
+        params = {
+            'folder_name': viz_folder_name,  # saved in self.viz_folder_name
+            'linear_solver': solver,
+        }
+        super().__init__(params=params)
 
         # Root name of solution files
         self.file_name = result_file_name
@@ -102,10 +109,15 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.shearzone_names = shearzone_names
         self.n_frac = len(self.shearzone_names)
 
+        # --- COMPUTATIONAL MESH ---
         self.mesh_args = mesh_args
         self.box = bounding_box
+        self.gb = None
+        self.Nd = None
 
-        self.isc = gts.ISCData(path=isc_data_path)
+        # --- GTS-ISC DATA ---
+        self.isc_data_path = isc_data_path
+        self.isc = gts.ISCData(path=self.isc_data_path)
 
         # Basic parameters
         self.set_rock_and_fluid()
@@ -619,9 +631,19 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.save_mechanical_bc_values()
         self.export_step()
 
-    def _set_time_parameters(self):
+    def after_simulation(self):
+        """ Called after a time-dependent problem
         """
-        Set time parameters
+        self.export_pvd()
+        logger.info(f"Solution exported to folder \n {self.viz_folder_name}")
+
+    def after_newton_failure(self, solution, errors, iteration_counter):
+        """ Instead of raising error on failure, save and return available data.
+        """
+        logger.error("Newton iterations did not converge")
+
+        self.after_simulation()
+        return self
 
         """
         self.time = 0
@@ -656,6 +678,106 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.initialize_linear_solver()
 
         self.set_viz()
+
+    def check_convergence(self, solution, prev_solution, init_solution, nl_params):
+        g_max = self._nd_grid()
+
+        if not self._is_nonlinear_problem():
+            # At least for the default direct solver, scipy.sparse.linalg.spsolve, no
+            # error (but a warning) is raised for singular matrices, but a nan solution
+            # is returned. We check for this.
+            diverged = np.any(np.isnan(solution))
+            converged = not diverged
+            error = np.nan if diverged else 0
+            return error, converged, diverged
+
+        mech_dof = self.assembler.dof_ind(g_max, self.displacement_variable)
+        scalar_dof = self.assembler.dof_ind(g_max, self.scalar_variable)
+
+        # Also find indices for the contact variables
+        contact_dof = np.array([], dtype=np.int)
+        for e, _ in self.gb.edges():
+            if e[0].dim == self.Nd:
+                contact_dof = np.hstack(
+                    (
+                        contact_dof,
+                        self.assembler.dof_ind(e[1], self.contact_traction_variable),
+                    )
+                )
+
+        # Pick out the solution from current, previous iterates, as well as the
+        # initial guess.
+        u_mech_now = solution[mech_dof]
+        u_mech_prev = prev_solution[mech_dof]
+        u_mech_init = init_solution[mech_dof]
+
+        contact_now = solution[contact_dof]
+        contact_prev = prev_solution[contact_dof]
+        contact_init = init_solution[contact_dof]
+
+        # Pressure solution
+        p_scalar_now = solution[scalar_dof]
+        p_scalar_prev = prev_solution[scalar_dof]
+        p_scalar_init = init_solution[scalar_dof]
+
+        # Calculate errors
+        difference_in_iterates_mech = np.sum((u_mech_now - u_mech_prev) ** 2)
+        difference_from_init_mech = np.sum((u_mech_now - u_mech_init) ** 2)
+
+        contact_norm = np.sum(contact_now ** 2)
+        difference_in_iterates_contact = np.sum((contact_now - contact_prev) ** 2)
+        difference_from_init_contact = np.sum((contact_now - contact_init) ** 2)
+
+        # Scalar errors
+        scalar_norm = np.sum(p_scalar_now ** 2)
+        difference_in_iterates_scalar = np.sum((p_scalar_now - p_scalar_prev) ** 2)
+        difference_from_init_scalar = np.sum((p_scalar_now - p_scalar_init) ** 2)
+
+        tol_convergence = nl_params["nl_convergence_tol"]
+        # Not sure how to use the divergence criterion
+        # tol_divergence = nl_params["nl_divergence_tol"]
+
+        converged = False
+        diverged = False
+
+        # Check absolute convergence criterion
+        if difference_in_iterates_mech < tol_convergence:
+            converged = True
+            error_mech = difference_in_iterates_mech
+
+        else:
+            # Check relative convergence criterion
+            if (
+                difference_in_iterates_mech
+                < tol_convergence * difference_from_init_mech
+            ):
+                converged = True
+            error_mech = difference_in_iterates_mech / difference_from_init_mech
+
+        # The if is intended to avoid division through zero
+        if contact_norm < 1e-10 and difference_in_iterates_contact < 1e-10:
+            # converged = True
+            error_contact = difference_in_iterates_contact
+        else:
+            error_contact = (
+                difference_in_iterates_contact / difference_from_init_contact
+            )
+
+        # -- Scalar solution --
+        # The if is intended to avoid division through zero
+        if scalar_norm < 1e-10 and difference_in_iterates_scalar < 1e-10:
+            # converged = True
+            error_scalar = difference_in_iterates_scalar
+        else:
+            error_scalar = (
+                    difference_in_iterates_scalar / difference_from_init_scalar
+            )
+
+        logger.info("Error in contact force is {}".format(error_contact))
+        logger.info("Error in matrix displacement is {}".format(error_mech))
+        logger.info(f"Error in pressure is {error_scalar}.")
+
+        return error_mech, converged, diverged
 
     def _depth(self, coords):
         """
