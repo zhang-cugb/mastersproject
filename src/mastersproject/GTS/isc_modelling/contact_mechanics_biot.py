@@ -88,7 +88,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         """
 
         self.name = "contact mechanics biot on ISC dataset"
-        logging.info(f"Running: {self.name}")
+        logger.info(f"Running: {self.name}")
 
         params = {
             'folder_name': viz_folder_name,  # saved in self.viz_folder_name
@@ -153,9 +153,8 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.isc_data_path = isc_data_path
         self.isc = gts.ISCData(path=self.isc_data_path)
 
-        # Basic parameters
-        self.set_rock_and_fluid()
-
+    @timer
+    @trace
     def create_grid(self, overwrite_grid=False):
         """ Create a GridBucket of a 3D domain with fractures
         defined by the ISC dataset.
@@ -321,11 +320,11 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
 
             # We only tag cells in the desired fracture
             if grid_name == bh_sz['shearzone']:
-                logging.info(f"Grid of name: {grid_name}, and dimension {g.dim}")
-                logging.info(f"Setting non-zero source for scalar variable")
+                logger.info(f"Grid of name: {grid_name}, and dimension {g.dim}")
+                logger.info(f"Setting non-zero source for scalar variable")
 
                 ids, dsts = g.closest_cell(pts, return_distance=True)
-                logging.info(f"Closest cell found has distance: {dsts[0]:4f}")
+                logger.info(f"Closest cell found has distance: {dsts[0]:4f}")
 
                 # Tag the injection cell
                 tags[ids] = 1
@@ -752,6 +751,8 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         # TODO: Discretize only the terms you need.
         self.discretize()
 
+    @timer
+    @trace
     def after_newton_convergence(self, solution, errors, iteration_counter):
         """ Overwrite from parent to export solution steps."""
         self.assembler.distribute_variable(solution)
@@ -921,6 +922,8 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         return True
 
 
+# --- OLD SETUP - SEE 'setup.py' INSTEAD ---
+
 def main(
         viz_folder_name: str = None
 ):
@@ -962,11 +965,13 @@ def main(
     pp.run_time_dependent_model(setup=setup, params=default_options)
 
     setup.export_pvd()
-    logging.info("Simulation done.")
-    logging.info(f"All files stored to: \n {viz_folder_name}")
+    logger.info("Simulation done.")
+    logger.info(f"All files stored to: \n {viz_folder_name}")
 
     return setup
 
+
+# --- OLD SETUP - DO NOT USE ---
 
 def run_model(
         model: ContactMechanicsBiotISC = None,
@@ -1027,7 +1032,7 @@ def run_model(
     while model.time < t_end:
         model.time += model.time_step
         k += 1
-        logging.debug(
+        logger.debug(
             f"\n Time step {k} at time {model.time:.1e} of {t_end:.1e} with time step {model.time_step:.1e}"
         )
 

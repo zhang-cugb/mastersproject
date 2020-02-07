@@ -26,12 +26,21 @@ from porepy.models.contact_mechanics_biot_model import ContactMechanicsBiot
 import GTS as gts
 from refinement import refine_mesh
 
+# --- LOGGING UTIL ---
+from util.logging_util import timer, trace
+# logger = logging.getLogger(__name__)
+
 
 def __setup_logging(path, log_fname="results.log"):
     path = str(path)
-    # Log info messages to console
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.INFO)
+    # GTS logger
+    gts_logger = logging.getLogger('GTS')
+    gts_logger.setLevel(logging.INFO)
+
+    # PorePy logger
+    pp_logger = logging.getLogger('porepy')
+    pp_logger.setLevel(logging.DEBUG)
+
     # Add handler for logging debug messages to file.
     fh = logging.FileHandler(path + "/" + log_fname)
     fh.setLevel(logging.DEBUG)
@@ -282,10 +291,9 @@ def run_mechanics_model(
         os.makedirs(viz_folder_name, exist_ok=True)
 
     # Set up logging
-    logger = __setup_logging(viz_folder_name)
-
-
-    logging.basicConfig(filename=viz_folder_name+"/results.log", level=logging.DEBUG)
+    __setup_logging(viz_folder_name)
+    # logging.basicConfig(filename=viz_folder_name + "/results.log", level=logging.DEBUG)
+    logger = logging.getLogger(__name__)
     logger.info(f"Preparing setup for mechanics simulation on {pendulum.now().to_atom_string()}")
     logger.info(f"Visualization folder path: \n {viz_folder_name}")
 
@@ -451,6 +459,8 @@ def create_isc_domain(
     return gb_list
 
 
+@timer
+@trace
 def convergence_study():
     """ Perform a convergence study of a given problem setup.
     """
