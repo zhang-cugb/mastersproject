@@ -97,7 +97,7 @@ def refine_mesh(
 @trace
 def gb_coarse_fine_cell_mapping(
         gb: pp.GridBucket, gb_ref: pp.GridBucket, tol=1e-8
-) -> List[Tuple[pp.GridBucket, pp.GridBucket, sps.csc_matrix]]:
+):
     """ Wrapper for coarse_fine_cell_mapping to construct mapping for grids in GridBucket.
 
     Parameters
@@ -129,7 +129,9 @@ def gb_coarse_fine_cell_mapping(
     gb_ref.assign_node_ordering(overwrite_existing=False)
 
     n_grids = len(grids)
-    mappings = [None]*n_grids
+    # mappings = [None]*n_grids
+    mappings = {'gb': gb, 'gb_ref': gb_ref}
+
     for i in np.arange(n_grids):
         g, g_ref = grids[i], grids_ref[i]
         node_num, node_num_ref = gb._nodes[g]['node_number'], gb_ref._nodes[g_ref]['node_number']
@@ -138,7 +140,9 @@ def gb_coarse_fine_cell_mapping(
 
         mapping = coarse_fine_cell_mapping(g, g_ref, tol=tol)
 
-        mappings[node_num] = (g, g_ref, mapping)
+        mappings[(g, g_ref)] = {'node_number': node_num,
+                                'data': gb.node_props(g),
+                                'data_ref': gb_ref.node_props(g_ref)}
 
     return mappings
 
