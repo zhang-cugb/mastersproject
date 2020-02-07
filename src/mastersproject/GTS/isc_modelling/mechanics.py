@@ -351,9 +351,14 @@ class ContactMechanicsISC(ContactMechanics):
 
         self.u_exp = 'u_exp'
         self.traction_exp = 'traction_exp'
+        self.normal_frac_u = 'normal_frac_u'
+        self.tangential_frac_u = 'tangential_frac_u'
+
         self.export_fields = [
             self.u_exp,
             self.traction_exp,
+            self.normal_frac_u,
+            self.tangential_frac_u,
         ]
 
     def prepare_simulation(self):
@@ -377,10 +382,17 @@ class ContactMechanicsISC(ContactMechanics):
 
         Inspired by Keilegavlen 2019 (code)
         """
+
+        self.save_frac_jump_data()  # Save fracture jump data to pp.STATE
         gb = self.gb
         Nd = self.Nd
 
         for g, d in gb:
+
+            if g.dim != 2:  # We only define tangential jumps in 2D fractures
+                d[pp.STATE][self.normal_frac_u] = np.zeros(g.num_cells)
+                d[pp.STATE][self.tangential_frac_u] = np.zeros(g.num_cells)
+
             if g.dim == Nd:  # On matrix
                 u = d[pp.STATE][self.displacement_variable].reshape((Nd, -1), order='F').copy() * self.length_scale
 
@@ -411,9 +423,9 @@ class ContactMechanicsISC(ContactMechanics):
                     d[pp.STATE][self.u_exp] = np.zeros((Nd, g.num_cells))
                     d[pp.STATE][self.traction_exp] = np.zeros((Nd, g.num_cells))
         self.viz.write_vtk(data=self.export_fields, time_dependent=False)  # Write visualization
-        self.save_data()
 
-    def save_data(self):
+
+    def save_frac_jump_data(self):
         """ Save normal and tangential jumps to a class attribute
         Inspired by Keilegavlen 2019 (code)
         """
@@ -436,9 +448,14 @@ class ContactMechanicsISC(ContactMechanics):
             u_mortar_local = self.reconstruct_local_displacement_jump(
                 data_edge=data_edge, from_iterate=True).copy() * self.length_scale
 
-            # Jump distances
-            tangential_jump = np.linalg.norm(u_mortar_local[:-1, :], axis=0)
-            normal_jump = np.linalg.norm(u_mortar_local[-1, :])
+            # Jump distances in each cell
+            tangential_jump = np.linalg.norm(u_mortar_local[:-1, :], axis=0)  # * self.length_scale inside norm.
+            normal_jump = u_mortar_local[-1, :]  # * self.length_scale
+
+            # Save jumps to state
+            d = gb.node_props(g)
+            d[pp.STATE][self.normal_frac_u] = normal_jump
+            d[pp.STATE][self.tangential_frac_u] = tangential_jump
 
             # Ad-hoc average normal and tangential jump "estimates"
             # TODO: Find a proper way to express the "total" displacement of a fracture

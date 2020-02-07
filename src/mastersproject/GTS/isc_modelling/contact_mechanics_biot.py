@@ -136,8 +136,12 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         # --- BOUNDARY, INITIAL, SOURCE CONDITIONS ---
         self.source_scalar_borehole_shearzone = source_scalar_borehole_shearzone
 
+        # --- FRACTURES ---
         self.shearzone_names = shearzone_names
         self.n_frac = len(self.shearzone_names)
+        # Initialize data storage for normal and tangential jumps
+        self.u_jumps_tangential = np.empty((1, self.n_frac))
+        self.u_jumps_normal = np.empty((1, self.n_frac))
 
         # --- COMPUTATIONAL MESH ---
         self.mesh_args = mesh_args
@@ -627,114 +631,109 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.u_exp = 'u_exp'
         self.p_exp = 'p'
         self.traction_exp = 'traction_exp'
+        self.normal_frac_u = 'normal_frac_u'
+        self.tangential_frac_u = 'tangential_frac_u'
+
         self.export_fields = [
             self.u_exp,
             self.p_exp,
             # self.traction_exp,
+            self.normal_frac_u,
+            self.tangential_frac_u,
         ]
 
-    def _export_step(self):
-        """
-        export_step also serves as a hack to update parameters without changing the biot
-        run method, since it is the only method of the setup class which is called at
-        (the end of) each time step.
-        """
-        if "exporter" not in self.__dict__:
-            self.set_viz()
-        for g, d in self.gb:
-            if g.dim == self.Nd:
-                u = d[pp.STATE][self.displacement_variable].reshape(
-                    (self.Nd, -1), order="F"
-                )
-                if g.dim == 3:
-                    d[pp.STATE][self.u_exp] = u * self.length_scale
+    @timer
+    @trace
+    def export_step(self):
+        """ Export a step
 
-                else:
-                    d[pp.STATE][self.u_exp] = np.vstack(
-                        (u * self.length_scale, np.zeros(u.shape[1]))
-                    )
+        Inspired by Keilegavlen 2019 (code)
+        """
+
+        self.save_frac_jump_data()  # Save fracture jump data to pp.STATE
+        gb = self.gb
+        Nd = self.Nd
+
+        for g, d in gb:
+
+            if g.dim != 2:  # We only define tangential jumps in 2D fractures
+                d[pp.STATE][self.normal_frac_u] = np.zeros(g.num_cells)
+                d[pp.STATE][self.tangential_frac_u] = np.zeros(g.num_cells)
+
+            if g.dim == Nd:  # On matrix
+                u = d[pp.STATE][self.displacement_variable].reshape((Nd, -1), order='F').copy() * self.length_scale
+
+                if g.dim != 3:  # Only called if solving a 2D problem
+                    u = np.vstack(u, np.zeros(u.shape[1]))
+
+                d[pp.STATE][self.u_exp] = u
+
                 d[pp.STATE][self.traction_exp] = np.zeros(d[pp.STATE][self.u_exp].shape)
-            else:
-                g_h = self.gb.node_neighbors(g)[0]
-                if g_h.dim == self.Nd:
-                    data_edge = self.gb.edge_props((g, g_h))
-                    u_mortar_local = self.reconstruct_local_displacement_jump(data_edge)
-                    traction = d[pp.STATE][self.contact_traction_variable].reshape(
-                        (self.Nd, -1), order="F"
-                    )
+
+            else:  # In fractures or intersection of fractures (etc.)
+                g_h = gb.node_neighbors(g, only_higher=True)[0]  # Get the higher-dimensional neighbor
+                if g_h.dim == Nd:  # In a fracture
+                    data_edge = gb.edge_props((g, g_h))
+                    u_mortar_local = self.reconstruct_local_displacement_jump(
+                        data_edge=data_edge, from_iterate=True).copy()
+                    u_mortar_local = u_mortar_local * self.length_scale
+
+                    traction = d[pp.STATE][self.contact_traction_variable].reshape((Nd, -1), order="F")
 
                     if g.dim == 2:
-                        d[pp.STATE][self.u_exp] = u_mortar_local * self.length_scale
+                        d[pp.STATE][self.u_exp] = u_mortar_local
                         d[pp.STATE][self.traction_exp] = traction
-                    else:
-                        d[pp.STATE][self.u_exp] = np.vstack(
-                            (
-                                u_mortar_local * self.length_scale,
-                                np.zeros(u_mortar_local.shape[1]),
-                            )
-                        )
-            d[pp.STATE][self.p_exp] = d[pp.STATE][self.scalar_variable] * self.scalar_scale
-        self.viz.write_vtk(self.export_fields, time_step=self.time)
+                    # TODO: Check when this statement is actually called
+                    else:  # Only called if solving a 2D problem (i.e. this is a 0D fracture intersection)
+                        d[pp.STATE][self.u_exp] = np.vstack(u_mortar_local, np.zeros(u_mortar_local.shape[1]))
+                else:  # In a fracture intersection
+                    d[pp.STATE][self.u_exp] = np.zeros((Nd, g.num_cells))
+                    d[pp.STATE][self.traction_exp] = np.zeros((Nd, g.num_cells))
+        self.viz.write_vtk(data=self.export_fields, time_step=self.time)  # Write visualization
         self.export_times.append(self.time)
-        self.save_data()
-        # self.adjust_time_step()
-        self.set_parameters()
 
-    def save_data(self):
+    def save_frac_jump_data(self):
+        """ Save normal and tangential jumps to a class attribute
+        Inspired by Keilegavlen 2019 (code)
+        """
+        gb = self.gb
+        Nd = self.Nd
         n = self.n_frac
-        if "u_jumps_tangential" not in self.__dict__:
-            self.u_jumps_tangential = np.empty((1, n))
-            self.u_jumps_normal = np.empty((1, n))
+
         tangential_u_jumps = np.zeros((1, n))
         normal_u_jumps = np.zeros((1, n))
-        for g, d in self.gb:
-            if g.dim < self.Nd:
-                g_h = self.gb.node_neighbors(g)[0]
-                # assert g_h.dim == self.Nd
-                if not g_h.dim == self.Nd:
-                    continue
-                data_edge = self.gb.edge_props((g, g_h))
-                u_mortar_local = self.reconstruct_local_displacement_jump(data_edge)
-                tangential_jump = np.linalg.norm(
-                    u_mortar_local[:-1] * self.length_scale, axis=0
-                )
-                normal_jump = u_mortar_local[-1] * self.length_scale
-                vol = np.sum(g.cell_volumes)
-                tangential_jump_norm = np.sqrt(np.sum(tangential_jump ** 2 * g.cell_volumes)) / vol
-                normal_jump_norm = (
-                        np.sqrt(np.sum(normal_jump ** 2 * g.cell_volumes)) / vol
-                )
-                tangential_u_jumps[0, g.frac_num] = tangential_jump_norm
-                normal_u_jumps[0, g.frac_num] = normal_jump_norm
+
+        for frac_num, frac_name in enumerate(self.shearzone_names):
+            g_lst = gb.get_grids(lambda _g: gb.node_props(_g)['name'] == frac_name)
+            assert len(g_lst) == 1  # Currently assume each fracture is uniquely named.
+
+            g = g_lst[0]
+            g_h = gb.node_neighbors(g, only_higher=True)[0]  # Get higher-dimensional neighbor
+            assert g_h.dim == Nd  # We only operate on fractures of dim Nd-1.
+
+            data_edge = gb.edge_props((g, g_h))
+            u_mortar_local = self.reconstruct_local_displacement_jump(
+                data_edge=data_edge, from_iterate=True).copy() * self.length_scale
+
+            # Jump distances in each cell
+            tangential_jump = np.linalg.norm(u_mortar_local[:-1, :], axis=0)  # * self.length_scale inside norm.
+            normal_jump = np.abs(u_mortar_local[-1, :])  # * self.length_scale
+
+            # Save jumps to state
+            d = gb.node_props(g)
+            d[pp.STATE][self.normal_frac_u] = normal_jump
+            d[pp.STATE][self.tangential_frac_u] = tangential_jump
+
+            # Ad-hoc average normal and tangential jump "estimates"
+            # TODO: Find a proper way to express the "total" displacement of a fracture
+            avg_tangential_jump = np.sum(tangential_jump * g.cell_volumes) / np.sum(g.cell_volumes)
+            avg_normal_jump = np.sum(normal_jump * g.cell_volumes) / np.sum(g.cell_volumes)
+
+            tangential_u_jumps[0, frac_num] = avg_tangential_jump
+            normal_u_jumps[0, frac_num] = avg_normal_jump
 
         self.u_jumps_tangential = np.concatenate((self.u_jumps_tangential, tangential_u_jumps))
         self.u_jumps_normal = np.concatenate((self.u_jumps_normal, normal_u_jumps))
-
-    def export_step(self):
-        """ Implementation of export step"""
-
-        # Get fracture grids:
-        # Set zero values there to facilitate export.
-        frac_dims = [1, 2]
-        for dim in frac_dims:
-            gd_list = self.gb.grids_of_dimension(dim)
-            for g in gd_list:
-                data = self.gb.node_props(g)
-                data[pp.STATE][self.u_exp] = np.zeros((3, g.num_cells))
-
-        # Get the 3D data.
-        g3 = self.gb.grids_of_dimension(3)[0]
-        d3 = self.gb.node_props(g3)
-
-        # Get the state, transform it, and save to another state variable
-        u_exp = d3[pp.STATE][self.displacement_variable]
-        d3[pp.STATE][self.u_exp] = np.reshape(np.copy(u_exp), newshape=(g3.dim, g3.num_cells), order="F")
-
-        # Write step
-        self.viz.write_vtk(self.export_fields, time_step=self.time)
-        self.export_times.append(self.time)
-
-        self.save_data()
 
     def export_pvd(self):
         """ Implementation of export pvd"""
