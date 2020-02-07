@@ -567,7 +567,8 @@ def stress_tensor():
     Values from Krietsch et al 2019
     """
 
-    stress_value = np.array([13.1, 9.2, 8.7]) * pp.MEGA * pp.PASCAL
+    # Note: Negative side due to compressive stresses
+    stress_value = - np.array([13.1, 9.2, 8.7]) * pp.MEGA * pp.PASCAL
     dip_direction = np.array([104.48, 259.05, 3.72])
     dip = np.array([39.21, 47.90, 12.89])
 
