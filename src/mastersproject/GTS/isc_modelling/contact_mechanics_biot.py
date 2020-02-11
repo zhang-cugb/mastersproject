@@ -109,7 +109,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.current_injection_rate = 0
 
         # Scaling coefficients
-        self.scalar_scale = 1  # scales['scalar_scale']
+        self.scalar_scale = 1 * pp.GIGA  # scales['scalar_scale']
         self.length_scale = 1  # scales['length_scale']
 
         # --- PHYSICAL PARAMETERS ---
@@ -257,7 +257,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         bc_values = np.zeros((g.dim, g.num_faces))
 
         bf_stress = np.dot(self.stress, outward_normals)
-        bc_values[:, all_bf] = bf_stress * A[all_bf]
+        bc_values[:, all_bf] = bf_stress * A[all_bf] / self.scalar_scale
 
         faces = self.faces_to_fix(g)
         bc_values[:, faces] = 0
@@ -272,7 +272,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         all_bf, *_ = self.domain_boundary_sides(g)
         bc_values = np.zeros(g.num_faces)
         depth = self._depth(g.face_centers[:, all_bf])
-        bc_values[all_bf] = self.fluid.hydrostatic_pressure(depth)  # / self.scalar_scale
+        bc_values[all_bf] = self.fluid.hydrostatic_pressure(depth) / self.scalar_scale
         # return bc_values
         return np.zeros(g.num_faces)
 
@@ -412,7 +412,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
             k = self.grid_permeability_from_transmissivity(g)
 
             kxx = (
-                    k / viscosity  # / self.length_scale ** 2
+                    k / viscosity * self.scalar_scale # / self.length_scale ** 2
             )
 
             k_tensor = pp.SecondOrderTensor(kxx)
@@ -433,7 +433,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
                 "second_order_tensor"
             ].values[0, 0]
             # Division through half the aperture represents taking the (normal) gradient
-            kn = mg.slave_to_mortar_int() * np.divide(k_s, a / 2)
+            kn = mg.slave_to_mortar_int() * np.divide(k_s, a / 2) * self.scalar_scale
             d = pp.initialize_data(
                 e, d, self.scalar_parameter_key, {"normal_diffusivity": kn}
             )  # TODO: Check if it should be mg
@@ -594,8 +594,8 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         for g, d in gb:
             if g.dim == self.Nd:
                 # Rock parameters
-                lam = self.set_lam(g)  # / self.scalar_scale
-                mu = self.set_mu(g)  # / self.scalar_scale
+                lam = self.set_lam(g) / self.scalar_scale
+                mu = self.set_mu(g) / self.scalar_scale
                 C = pp.FourthOrderTensor(mu, lam)
 
                 # Define boundary condition
