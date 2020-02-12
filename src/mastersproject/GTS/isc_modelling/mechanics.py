@@ -225,7 +225,6 @@ class ContactMechanicsISC(ContactMechanics):
         All faces are Neumann, except 3 faces fixed
         by self.faces_to_fix(g), which are Dirichlet.
         """
-
         # Retrieve the domain boundary
         all_bf, east, west, north, south, top, bottom = self.domain_boundary_sides(g)
 
@@ -245,32 +244,32 @@ class ContactMechanicsISC(ContactMechanics):
         bc_values[:, all_bf] += bf_stress  # Mechanical stress
 
         # --- gravitational forces ---
-        # dirty trick to give inward and downward (face area weighed) boundary normal vectors.
-        downward_inward_normals = - outward_normals.copy()
-        downward_inward_normals[:, bottom] = - downward_inward_normals[:, bottom]
         depth = self._depth(g.face_centers)
-        lithostatic_bc = self.rock.lithostatic_pressure(depth)
-
-        lithostatic_bc = lithostatic_bc * downward_inward_normals
+        # Negative value since we consider pressure of surrounding rock on our rock mass.
+        lithostatic_bc = - self.rock.lithostatic_pressure(depth)
+        lithostatic_bc = lithostatic_bc * outward_normals
 
         # -- Scale horizontal gravitational forces --
-        scl1 = 1.2  # TODO: Find literature on the horizontal gravity scaling
-        scl2 = 0.8
+        scl_x = 1.061429  # TODO: Find literature on the horizontal gravity scaling
+        scl_y = 0.826675
         # Scale east-west:
-        lithostatic_bc[:, np.logical_or(east, west)] *= scl1
+        lithostatic_bc[:, np.logical_or(east, west)] *= scl_x
         # Scale north-south
-        lithostatic_bc[:, np.logical_or(north, south)] *= scl2
+        lithostatic_bc[:, np.logical_or(north, south)] *= scl_y
 
         bc_values[:, all_bf] += lithostatic_bc[:, all_bf]
 
+        faces = self.faces_to_fix(g)
+        bc_values[:, faces] = 0
+
         # return bc_values.ravel("F")
         # *** Test pure mechanics conditions: ***
-        top_bot = np.where(np.logical_or(top, bottom))[0]
-        east_west = np.where(np.logical_or(east, west))[0]
-        north_south = np.where(np.logical_or(north, south))[0]
-        bc_values[[[1], [2]], east_west] = 0
-        bc_values[[[0], [2]], north_south] = 0
-        bc_values[[[0], [1]], top_bot] = 0
+        # top_bot = np.where(np.logical_or(top, bottom))[0]
+        # east_west = np.where(np.logical_or(east, west))[0]
+        # north_south = np.where(np.logical_or(north, south))[0]
+        # bc_values[[[1], [2]], east_west] = 0
+        # bc_values[[[0], [2]], north_south] = 0
+        # bc_values[[[0], [1]], top_bot] = 0
 
 
         return bc_values.ravel("F")
