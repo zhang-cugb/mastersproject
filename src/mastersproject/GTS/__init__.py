@@ -31,6 +31,7 @@ from GTS.isc_modelling.setup import (
 )
 
 # --- MODELS ---
+
 # Contact mechanics model
 from GTS.isc_modelling.mechanics import (
     ContactMechanicsISC,
