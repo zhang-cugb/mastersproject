@@ -287,8 +287,7 @@ def run_mechanics_model(
         )
     viz_folder_name = str(viz_folder_name)
     # Create viz folder path if it does not already exist
-    if not os.path.exists(viz_folder_name):
-        os.makedirs(viz_folder_name, exist_ok=True)
+    Path(viz_folder_name).mkdir(parents=True, exist_ok=True)
 
     # Set up logging
     __setup_logging(viz_folder_name)
@@ -448,12 +447,12 @@ def create_isc_domain(
     #   Currently, we assume that fracture order is preserved in creation process.
     #   This may be untrue if fractures are (completely) split in the process.
     # Assign node prop 'name' to each grid in the grid bucket.
-    for gb in gb_list:
-        pp.contact_conditions.set_projections(gb)
-        gb.add_node_props(keys="name")
-        fracture_grids = gb.get_grids(lambda g: g.dim == gb.dim_max() - 1)
+    for _gb in gb_list:
+        pp.contact_conditions.set_projections(_gb)
+        _gb.add_node_props(keys="name")
+        fracture_grids = _gb.get_grids(lambda g: g.dim == _gb.dim_max() - 1)
         for i, sz_name in enumerate(shearzone_names):
-            gb.set_node_prop(fracture_grids[i], key="name", val=sz_name)
+            _gb.set_node_prop(fracture_grids[i], key="name", val=sz_name)
             # Note: Use self.gb.node_props(g, 'name') to get value.
 
     return gb_list
