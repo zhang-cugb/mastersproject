@@ -254,7 +254,7 @@ class ContactMechanicsISC(ContactMechanics):
 
         # z-axis
         top_bot = np.where(np.logical_or(top, bottom))[0]
-        bc_values[3, top_bot] += lithostatic_bc[top_bot]
+        bc_values[2, top_bot] += lithostatic_bc[top_bot]
 
         # In the horizontal, we impose 0.8 and 1.2 times the vertical lithostatic stress.
         # TODO: Think about horizontal orientation of the horizontal state
@@ -264,7 +264,7 @@ class ContactMechanicsISC(ContactMechanics):
 
         # y-axis
         north_south = np.where(np.logical_or(north, south))[0]
-        bc_values[1, north_south] += 0.8 * lithostatic_bc[east_west]
+        bc_values[1, north_south] += 0.8 * lithostatic_bc[north_south]
 
         # Faces set to 0 Dirichlet
         faces = self.faces_to_fix(g)
@@ -297,10 +297,16 @@ class ContactMechanicsISC(ContactMechanics):
                     self.YOUNG_MODULUS, self.POISSON_RATIO
                 )
 
-                self.FRICTION_COEFFICIENT = 0.8
+                self.FRICTION_COEFFICIENT = 0.2  # TEMPORARY: FRICTION COEFFICIENT TO 0.2
                 self.POROSITY = 0.7 / 100
 
             def lithostatic_pressure(self, depth):
+                """ Lithostatic pressure.
+
+                NOTE: Returns positive values for positive depths.
+                Use the negative value when working with compressive
+                boundary conditions.
+                """
                 rho = self.DENSITY
                 return rho * depth * pp.GRAVITY_ACCELERATION
 
