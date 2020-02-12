@@ -229,46 +229,49 @@ class ContactMechanicsISC(ContactMechanics):
         # Retrieve the domain boundary
         all_bf, east, west, north, south, top, bottom = self.domain_boundary_sides(g)
 
-        # We provide the integrated stress (i.e. traction)
-        A = g.face_areas
-
         # Boundary values
         bc_values = np.zeros((g.dim, g.num_faces))
 
         # --- mechanical state ---
         # Get outward facing normal vectors for domain boundary, weighted for face area
 
-        # 1. Get normal vectors on the boundary
-        bf_normals = g.face_normals[:, all_bf]
+        # 1. Get normal vectors on the faces. These are already weighed by face area.
+        bf_normals = g.face_normals
         # 2. Adjust direction so they face outwards
-        flip_normal_to_outwards = np.where(g.cell_face_as_dense()[0, all_bf] >= 0, 1, -1)
+        flip_normal_to_outwards = np.where(g.cell_face_as_dense()[0, :] >= 0, 1, -1)
         outward_normals = bf_normals * flip_normal_to_outwards
 
-        bf_stress = np.dot(self.stress, outward_normals)  # Stress on the boundary due to the mechanical state
-        bc_values[:, all_bf] += bf_stress * A[all_bf]  # Mechanical stress
+        bf_stress = np.dot(self.stress, outward_normals[:, all_bf])
+        bc_values[:, all_bf] += bf_stress  # Mechanical stress
 
         # --- gravitational forces ---
+        # dirty trick to give inward and downward (face area weighed) boundary normal vectors.
+        downward_inward_normals = - outward_normals.copy()
+        downward_inward_normals[:, bottom] = - downward_inward_normals[:, bottom]
         depth = self._depth(g.face_centers)
-        # Minus sign due to compressive forces
-        lithostatic_bc = - self.rock.lithostatic_pressure(depth)
+        lithostatic_bc = self.rock.lithostatic_pressure(depth)
 
-        # z-axis
+        lithostatic_bc = lithostatic_bc * downward_inward_normals
+
+        # -- Scale horizontal gravitational forces --
+        scl1 = 1.2  # TODO: Find literature on the horizontal gravity scaling
+        scl2 = 0.8
+        # Scale east-west:
+        lithostatic_bc[:, np.logical_or(east, west)] *= scl1
+        # Scale north-south
+        lithostatic_bc[:, np.logical_or(north, south)] *= scl2
+
+        bc_values[:, all_bf] += lithostatic_bc[:, all_bf]
+
+        # return bc_values.ravel("F")
+        # *** Test pure mechanics conditions: ***
         top_bot = np.where(np.logical_or(top, bottom))[0]
-        bc_values[2, top_bot] += lithostatic_bc[top_bot]
-
-        # In the horizontal, we impose 0.8 and 1.2 times the vertical lithostatic stress.
-        # TODO: Think about horizontal orientation of the horizontal state
-        # x-axis
         east_west = np.where(np.logical_or(east, west))[0]
-        bc_values[0, east_west] += 1.2 * lithostatic_bc[east_west]
-
-        # y-axis
         north_south = np.where(np.logical_or(north, south))[0]
-        bc_values[1, north_south] += 0.8 * lithostatic_bc[north_south]
+        bc_values[[[1], [2]], east_west] = 0
+        bc_values[[[0], [2]], north_south] = 0
+        bc_values[[[0], [1]], top_bot] = 0
 
-        # Faces set to 0 Dirichlet
-        faces = self.faces_to_fix(g)
-        bc_values[:, faces] = 0
 
         return bc_values.ravel("F")
 
