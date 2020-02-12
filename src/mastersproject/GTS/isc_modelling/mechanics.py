@@ -221,26 +221,52 @@ class ContactMechanicsISC(ContactMechanics):
 
     def bc_values(self, g):
         """ Mechanical stress values as ISC
+
+        All faces are Neumann, except 3 faces fixed
+        by self.faces_to_fix(g), which are Dirichlet.
         """
+
         # Retrieve the domain boundary
-        all_bf, *_ = self.domain_boundary_sides(g)
+        all_bf, east, west, north, south, top, bottom = self.domain_boundary_sides(g)
 
         # We provide the integrated stress (i.e. traction)
         A = g.face_areas
 
+        # Boundary values
+        bc_values = np.zeros((g.dim, g.num_faces))
+
+        # --- mechanical state ---
         # Get outward facing normal vectors for domain boundary, weighted for face area
+
         # 1. Get normal vectors on the boundary
         bf_normals = g.face_normals[:, all_bf]
         # 2. Adjust direction so they face outwards
         flip_normal_to_outwards = np.where(g.cell_face_as_dense()[0, all_bf] >= 0, 1, -1)
         outward_normals = bf_normals * flip_normal_to_outwards
 
-        # Boundary values
-        bc_values = np.zeros((g.dim, g.num_faces))
+        bf_stress = np.dot(self.stress, outward_normals)  # Stress on the boundary due to the mechanical state
+        bc_values[:, all_bf] += bf_stress * A[all_bf]  # Mechanical stress
 
-        bf_stress = np.dot(self.stress, outward_normals)
-        bc_values[:, all_bf] = bf_stress * A[all_bf]
+        # --- gravitational forces ---
+        depth = self._depth(g.face_centers)
+        # Minus sign due to compressive forces
+        lithostatic_bc = - self.rock.lithostatic_pressure(depth)
 
+        # z-axis
+        top_bot = np.where(np.logical_or(top, bottom))[0]
+        bc_values[3, top_bot] += lithostatic_bc[top_bot]
+
+        # In the horizontal, we impose 0.8 and 1.2 times the vertical lithostatic stress.
+        # TODO: Think about horizontal orientation of the horizontal state
+        # x-axis
+        east_west = np.where(np.logical_or(east, west))[0]
+        bc_values[0, east_west] += 1.2 * lithostatic_bc[east_west]
+
+        # y-axis
+        north_south = np.where(np.logical_or(north, south))[0]
+        bc_values[1, north_south] += 0.8 * lithostatic_bc[east_west]
+
+        # Faces set to 0 Dirichlet
         faces = self.faces_to_fix(g)
         bc_values[:, faces] = 0
 
@@ -273,6 +299,10 @@ class ContactMechanicsISC(ContactMechanics):
 
                 self.FRICTION_COEFFICIENT = 0.8
                 self.POROSITY = 0.7 / 100
+
+            def lithostatic_pressure(self, depth):
+                rho = self.DENSITY
+                return rho * depth * pp.GRAVITY_ACCELERATION
 
         self.rock = GrimselGranodiorite()
 
@@ -495,6 +525,14 @@ class ContactMechanicsISC(ContactMechanics):
         """ What to do at the end of a step."""
         self.assembler.distribute_variable(solution)
         self.export_step()
+
+    def _depth(self, coords):
+        """
+        Unscaled depth. We center the domain at 480m below the surface.
+        (See Krietsch et al, 2018a)
+        """
+        # return 480.0 * pp.METER * coords[2]
+        return 480.0 * pp.METER - self.length_scale * coords[2]
 
 
 class ContactMechanicsISCWithGrid(ContactMechanicsISC):
