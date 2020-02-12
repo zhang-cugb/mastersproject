@@ -852,6 +852,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         """ Instead of raising error on failure, save and return available data.
         """
         logger.error("Newton iterations did not converge")
+        self.after_newton_convergence(solution, errors, iteration_counter)
 
         self.after_simulation()
         return self
