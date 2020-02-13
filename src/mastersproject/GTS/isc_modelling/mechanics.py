@@ -239,40 +239,63 @@ class ContactMechanicsISC(ContactMechanics):
         # 2. Adjust direction so they face outwards
         flip_normal_to_outwards = np.where(g.cell_face_as_dense()[0, :] >= 0, 1, -1)
         outward_normals = bf_normals * flip_normal_to_outwards
-
         bf_stress = np.dot(self.stress, outward_normals[:, all_bf])
         bc_values[:, all_bf] += bf_stress  # Mechanical stress
 
         # --- gravitational forces ---
-        depth = self._depth(g.face_centers)
-        # Negative value since we consider pressure of surrounding rock on our rock mass.
-        lithostatic_bc = - self.rock.lithostatic_pressure(depth)
-        lithostatic_bc = lithostatic_bc * outward_normals
 
-        # -- Scale horizontal gravitational forces --
-        scl_x = 1.061429  # TODO: Find literature on the horizontal gravity scaling
-        scl_y = 0.826675
-        # Scale east-west:
-        lithostatic_bc[:, np.logical_or(east, west)] *= scl_x
-        # Scale north-south
-        lithostatic_bc[:, np.logical_or(north, south)] *= scl_y
+        # depth = self._depth(g.face_centers)
+        # # Negative value since we consider pressure of surrounding rock on our rock mass.
+        # lithostatic_bc = - self.rock.lithostatic_pressure(depth)
+        # lithostatic_bc = lithostatic_bc * outward_normals
+        #
+        # # -- Scale horizontal gravitational forces --
+        # scl_x = 1.061429  # TODO: Find literature on the horizontal gravity scaling
+        # scl_y = 0.826675
+        # # Scale east-west:
+        # lithostatic_bc[:, np.logical_or(east, west)] *= scl_x
+        # # Scale north-south
+        # lithostatic_bc[:, np.logical_or(north, south)] *= scl_y
+        #
+        # bc_values[:, all_bf] += lithostatic_bc[:, all_bf]
 
-        bc_values[:, all_bf] += lithostatic_bc[:, all_bf]
+        # NEW LITHOSTATIC METHOD
+        lithostatic_bc = self.adjust_stress_for_depth(g, outward_normals)
+
+        bc_values[:, all_bf] += lithostatic_bc
 
         faces = self.faces_to_fix(g)
         bc_values[:, faces] = 0
 
-        # return bc_values.ravel("F")
-        # *** Test pure mechanics conditions: ***
-        # top_bot = np.where(np.logical_or(top, bottom))[0]
-        # east_west = np.where(np.logical_or(east, west))[0]
-        # north_south = np.where(np.logical_or(north, south))[0]
-        # bc_values[[[1], [2]], east_west] = 0
-        # bc_values[[[0], [2]], north_south] = 0
-        # bc_values[[[0], [1]], top_bot] = 0
-
-
         return bc_values.ravel("F")
+
+    def adjust_stress_for_depth(self, g, outward_normals):
+        """ Compute a stress tensor purely accounting for depth.
+
+        The true_stress_depth determines at what depth we consider
+        the given stress tensor (self.stress) to be equal to
+        the given value. This can in principle be any number,
+        but will usually be zmin <= true_stress_depth <= zmax
+
+        Need the grid g, and outward_normals (see method above).
+
+        Returns the marginal **traction** for the given face (g.face_centers)
+
+        # TODO This could perhaps be integrated directly in the above method.
+        """
+        # TODO: Only do computations over 'all_bf'.
+        true_stress_depth = self.box['zmax']  # The true_stress_depth should be unscaled.
+
+        # We assume the relative sizes of all stress components scale with sigma_zz.
+        stress_scaler = self.stress / self.stress[2, 2]
+
+        # All depths are translated in terms of the assumed depth of the given stress tensor.
+        relative_depths = g.face_centers[2] * self.length_scale - true_stress_depth
+        rho_g_h = self.rock.lithostatic_pressure(relative_depths)
+        lithostatic_stress = stress_scaler.dot(np.multiply(outward_normals, rho_g_h))
+        return lithostatic_stress
+
+
 
     def source(self, g):
         """
