@@ -105,7 +105,7 @@ class ContactMechanicsISC(ContactMechanics):
 
         # --- FRACTURES ---
         self.shearzone_names = shearzone_names
-        self.n_frac = len(self.shearzone_names)
+        self.n_frac = len(self.shearzone_names) if self.shearzone_names else 0
         # Initialize data storage for normal and tangential jumps
         self.u_jumps_tangential = np.empty((1, self.n_frac))
         self.u_jumps_normal = np.empty((1, self.n_frac))

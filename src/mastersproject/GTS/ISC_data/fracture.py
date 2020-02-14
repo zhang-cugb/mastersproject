@@ -76,7 +76,7 @@ def fracture_network(
     Parameters:
         shearzone_names : str or list
             Shearzones to make fracture network of.
-            if 'None': use all known shearzones.
+            if 'None': Mesh only the 3d domain.
         export : bool
             Export network to vtk.
         path : pathlib.Path or str
@@ -101,19 +101,20 @@ def fracture_network(
 
     if isinstance(shearzone_names, str):
         shearzone_names = [shearzone_names]
-    elif shearzone_names is None:
-        shearzone_names = ["S1_1", "S1_2", "S1_3", "S3_1", "S3_2"]
-    assert isinstance(shearzone_names, list)
 
-    convex = convex_plane(shearzone_names, coord_system="gts", path=path)
-    fractures = [
-        pp.Fracture(
-            convex.loc[convex.shearzone == sz, ("x_proj", "y_proj", "z_proj")]
-            .to_numpy()
-            .T
-        )
-        for sz in shearzone_names
-    ]
+    if shearzone_names is None:
+        # This will mesh only a 3d domain.
+        fractures = None
+    else:
+        convex = convex_plane(shearzone_names, coord_system="gts", path=path)
+        fractures = [
+            pp.Fracture(
+                convex.loc[convex.shearzone == sz, ("x_proj", "y_proj", "z_proj")]
+                .to_numpy()
+                .T
+            )
+            for sz in shearzone_names
+        ]
 
     network = pp.FractureNetwork3d(fractures)
 

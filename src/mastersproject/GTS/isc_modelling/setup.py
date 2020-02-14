@@ -451,9 +451,10 @@ def create_isc_domain(
         pp.contact_conditions.set_projections(_gb)
         _gb.add_node_props(keys="name")
         fracture_grids = _gb.get_grids(lambda g: g.dim == _gb.dim_max() - 1)
-        for i, sz_name in enumerate(shearzone_names):
-            _gb.set_node_prop(fracture_grids[i], key="name", val=sz_name)
-            # Note: Use self.gb.node_props(g, 'name') to get value.
+        if shearzone_names is not None:
+            for i, sz_name in enumerate(shearzone_names):
+                _gb.set_node_prop(fracture_grids[i], key="name", val=sz_name)
+                # Note: Use self.gb.node_props(g, 'name') to get value.
 
     return gb_list
 
