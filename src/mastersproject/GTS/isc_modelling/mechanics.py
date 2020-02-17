@@ -237,33 +237,18 @@ class ContactMechanicsISC(ContactMechanics):
         bc_values[:, all_bf] += bf_stress  # Mechanical stress
 
         # --- gravitational forces ---
+        lithostatic_bc = self._adjust_stress_for_depth(g, outward_normals)
 
-        # depth = self._depth(g.face_centers)
-        # # Negative value since we consider pressure of surrounding rock on our rock mass.
-        # lithostatic_bc = - self.rock.lithostatic_pressure(depth)
-        # lithostatic_bc = lithostatic_bc * outward_normals
-        #
-        # # -- Scale horizontal gravitational forces --
-        # scl_x = 1.061429
-        # scl_y = 0.826675
-        # # Scale east-west:
-        # lithostatic_bc[:, np.logical_or(east, west)] *= scl_x
-        # # Scale north-south
-        # lithostatic_bc[:, np.logical_or(north, south)] *= scl_y
-        #
-        # bc_values[:, all_bf] += lithostatic_bc[:, all_bf]
+        # NEUMANN
+        bc_values[:, all_bf] += lithostatic_bc[:, all_bf] / self.scalar_scale
 
-        # NEW LITHOSTATIC METHOD
-        lithostatic_bc = self.adjust_stress_for_depth(g, outward_normals)
-
-        bc_values[:, all_bf] += lithostatic_bc
-
+        # DIRICHLET
         faces = self.faces_to_fix(g)
-        bc_values[:, faces] = 0
+        bc_values[:, faces] = 0  # / self.length scale
 
         return bc_values.ravel("F")
 
-    def adjust_stress_for_depth(self, g, outward_normals):
+    def _adjust_stress_for_depth(self, g, outward_normals):
         """ Compute a stress tensor purely accounting for depth.
 
         The true_stress_depth determines at what depth we consider

@@ -364,7 +364,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         # return values.ravel("F")
         return np.zeros(self.Nd * g.num_cells)
 
-    def permeability_from_transmissivity(self, T, b, theta=None):
+    def _permeability_from_transmissivity(self, T, b, theta=None):
         """ Compute permeability [m2] from transmissivity [m2/s]
 
         We can relate permeability, k [m2] with transmissivity, T [m2/s]
@@ -386,9 +386,9 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         Returns the uniform permeability over the grid g (np.array of size g.num_cells)
         """
         shearzone = self.gb.node_props(g, 'name')
-        T = self.transmissivity[shearzone]
-        b = self.aquifer_thickness[shearzone]
-        permeability = self.permeability_from_transmissivity(T, b, theta=theta)
+        T = self.transmissivity[shearzone]  # Unscaled
+        b = self.aquifer_thickness[shearzone]  # Unscaled
+        permeability = self._permeability_from_transmissivity(T, b, theta=theta)  # Unscaled
         return permeability * np.ones(g.num_cells)
 
     def set_permeability_from_transmissivity(self):
@@ -435,7 +435,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
                 e, d, self.scalar_parameter_key, {"normal_diffusivity": kn}
             )  # TODO: Check if it should be mg
 
-    def aperture_from_transmissivity(self, T, b, theta=None):
+    def _aperture_from_transmissivity(self, T, b, theta=None):
         """ Compute hydraulic aperture [m] from transmissivity [m2/s]
 
         We use the following relation (derived from cubic law):
@@ -458,7 +458,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         shearzone = self.gb.node_props(g, 'name')
         T = self.transmissivity[shearzone]
         b = self.aquifer_thickness[shearzone]
-        aperture = self.aperture_from_transmissivity(T, b, theta=theta)
+        aperture = self._aperture_from_transmissivity(T, b, theta=theta)  # Unscaled
         return aperture * g.num_cells
 
     # def compute_aperture(self, g):
