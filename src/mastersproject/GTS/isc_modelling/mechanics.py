@@ -412,7 +412,6 @@ class ContactMechanicsISC(ContactMechanics):
                     d[pp.STATE][self.traction_exp] = np.zeros((Nd, g.num_cells))
         self.viz.write_vtk(data=self.export_fields, time_dependent=False)  # Write visualization
 
-
     def save_frac_jump_data(self):
         """ Save normal and tangential jumps to a class attribute
         Inspired by Keilegavlen 2019 (code)
@@ -486,7 +485,6 @@ class ContactMechanicsISC(ContactMechanics):
         Unscaled depth. We center the domain at 480m below the surface.
         (See Krietsch et al, 2018a)
         """
-        # return 480.0 * pp.METER * coords[2]
         return 480.0 * pp.METER - self.length_scale * coords[2]
 
 
@@ -515,7 +513,6 @@ class GrimselGranodiorite(pp.UnitRock):
         self.PERMEABILITY = 1
         self.THERMAL_EXPANSION = 1
         self.DENSITY = 2700 * pp.KILOGRAM / (pp.METER ** 3)
-        self.POROSITY = 1
 
         # Lamé parameters
         self.YOUNG_MODULUS = 49 * pp.GIGA * pp.PASCAL  # Krietsch et al 2018 (Data Descriptor) - Dynamic E

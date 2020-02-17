@@ -87,7 +87,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         # --- PHYSICAL PARAMETERS ---
         self.set_rock_and_fluid()
 
-        self.transmissivity = {
+        self.transmissivity = {  # Unscaled
             'S1_1': 1e-12 * pp.METER ** 2 / pp.SECOND,
             'S1_2': 1e-12 * pp.METER ** 2 / pp.SECOND,
             'S1_3': 1e-12 * pp.METER ** 2 / pp.SECOND,
@@ -95,7 +95,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
             'S3_2': 1e-6 * pp.METER ** 2 / pp.SECOND,
             None: 1e-14 * pp.METER ** 2 / pp.SECOND,  # 3D matrix
         }
-        self.aquifer_thickness = {
+        self.aquifer_thickness = {  # Unscaled
             'S1_1': 1000 * pp.MILLI * pp.METER,
             'S1_2': 1000 * pp.MILLI * pp.METER,
             'S1_3': 1000 * pp.MILLI * pp.METER,
@@ -115,7 +115,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         return super().bc_type(g)
 
     def bc_values_mechanics(self, g):
-        """ Mechanical stress values as ISC
+        """ Scaled mechanical stress values as ISC
         """
         return super().bc_values(g)
 
@@ -142,7 +142,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         return pp.BoundaryCondition(g, all_bf, ["dir"] * all_bf.size)
 
     def source_flow_rate(self):
-        """
+        """ Scaled source flow rate
 
         [From Grimsel Experiment Description]:
 
@@ -154,14 +154,14 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         """
         self.simulation_protocol()
         injection_rate = self.current_injection_rate
-        return injection_rate * pp.MILLI * pp.METER ** self.Nd
-        # return injection_rate * pp.MILLI * (pp.METER / self.length_scale) ** self.Nd
+        return injection_rate * pp.MILLI * (pp.METER / self.length_scale) ** self.Nd
 
     def well_cells(self):
         """
         Tag well cells with unity values, positive for injection cells and
         negative for production cells.
         """
+        # TODO: Use unscaled grid to find result.
         df = self.isc.borehole_plane_intersection()
         # Borehole-shearzone intersection of interest
         bh_sz = self.source_scalar_borehole_shearzone
@@ -184,8 +184,8 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
 
             # We only tag cells in the desired fracture
             if grid_name == bh_sz['shearzone']:
-                logger.info(f"Grid of name: {grid_name}, and dimension {g.dim}")
-                logger.info(f"Setting non-zero source for scalar variable")
+                logger.info(f"Tagging grid of name: {grid_name}, and dimension {g.dim}")
+                logger.info(f"Setting non-zero source value for pressure")
 
                 ids, dsts = g.closest_cell(pts, return_distance=True)
                 logger.info(f"Closest cell found has distance: {dsts[0]:4f}")
@@ -201,10 +201,9 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
 
         This is an example implementation of a borehole-fracture source.
         """
-        flow_rate = self.source_flow_rate()
-
-        # TODO: Ask if scalar source must be multiplied by time_step.
+        flow_rate = self.source_flow_rate()  # Already scaled by self.length_scale
         values = flow_rate * g.tags["well_cells"] * self.time_step
+        # TODO: Hydrostatic pressure
         return values
 
     def source_mechanics(self, g):
@@ -391,20 +390,22 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
     def set_mechanics_parameters(self):
         """ Set mechanics parameters for the simulation.
         """
+        # TODO Consider calling super().set_parameters(),
+        #  then set the remaining parameters here.
         gb = self.gb
 
         for g, d in gb:
             if g.dim == self.Nd:
                 # Rock parameters
-                lam = self.set_lam(g) / self.scalar_scale
-                mu = self.set_mu(g) / self.scalar_scale
+                lam = self.rock.LAMBDA * np.ones(g.num_cells) / self.scalar_scale
+                mu = self.rock.MU * np.ones(g.num_cells) / self.scalar_scale
                 C = pp.FourthOrderTensor(mu, lam)
 
                 # Define boundary condition
                 bc = self.bc_type_mechanics(g)
                 # BC and source values
-                bc_val = self.bc_values_mechanics(g)
-                source_val = self.source_mechanics(g)
+                bc_val = self.bc_values_mechanics(g)  # Already scaled
+                source_val = self.source_mechanics(g)  # Already scaled
 
                 pp.initialize_data(
                     g,
@@ -447,8 +448,8 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
 
             # Boundary and source conditions
             bc = self.bc_type_scalar(g)
-            bc_values = self.bc_values_scalar(g)
-            source_values = self.source_scalar(g)
+            bc_values = self.bc_values_scalar(g)  # Already scaled
+            source_values = self.source_scalar(g)  # Already scaled
 
             # Biot alpha
             alpha = self.biot_alpha(g)
@@ -461,6 +462,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
                 {
                     "bc": bc,
                     "bc_values": bc_values,
+                    # TODO: Scale this quantity
                     "mass_weight": compressibility * porosity * specific_volume,
                     "biot_alpha": alpha,
                     "source": source_values,
@@ -598,6 +600,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         """
         super().initial_condition()
 
+        # TODO: Scale variables
         if self.current_phase > 0:  # Stimulation phase
 
             for g, d in self.gb:
@@ -658,7 +661,6 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
 
         self.after_simulation()
         return self
-
 
     def prepare_initial_run(self):
         """
