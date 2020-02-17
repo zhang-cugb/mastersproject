@@ -51,7 +51,6 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
             self,
             viz_folder_name: str,
             # result_file_name: str,
-            isc_data_path: str,
             mesh_args: Mapping[str, int],
             bounding_box: Mapping[str, int],
             shearzone_names: List[str],
@@ -68,9 +67,6 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
             Absolute path to folder where grid and results will be stored
         # result_file_name : str
         #     Root name for simulation result files
-        isc_data_path : str
-            Path to isc data: path/to/GTS/01BasicInputData
-            Alternatively 'linux' or 'windows' for certain default paths (only applies to haakon's computers).
         mesh_args : Mapping[str, int]
             Arguments for meshing of domain.
             Required keys: 'mesh_size_frac', 'mesh_size_min, 'mesh_size_bound'
@@ -150,8 +146,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.Nd = None
 
         # --- GTS-ISC DATA ---
-        self.isc_data_path = isc_data_path
-        self.isc = gts.ISCData(path=self.isc_data_path)
+        self.isc = gts.ISCData()
 
     @timer
     @trace

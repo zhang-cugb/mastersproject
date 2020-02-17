@@ -38,7 +38,6 @@ class ContactMechanicsISC(ContactMechanics):
             self,
             viz_folder_name: str,
             result_file_name: str,
-            isc_data_path: str,
             mesh_args: Mapping[str, int],
             bounding_box: Mapping[str, int],
             shearzone_names: List[str],
@@ -117,8 +116,7 @@ class ContactMechanicsISC(ContactMechanics):
         self.Nd = None
 
         # --- GTS-ISC DATA ---
-        self.isc_data_path = isc_data_path
-        self.isc = gts.ISCData(path=self.isc_data_path)
+        self.isc = gts.ISCData()
 
     def create_grid(self, overwrite_grid=False):
         """ Create a GridBucket of a 3D domain with fractures

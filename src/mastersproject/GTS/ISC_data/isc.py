@@ -9,6 +9,7 @@ link: https://doi.org/10.3929/ethz-b-000243199
 
 """
 from pathlib import Path
+import os
 import logging
 
 import numpy as np
@@ -23,28 +24,22 @@ class ISCData:
         """ Initialize the class managing data from the ISC project
 
         Parameters:
-            path : str, pathlib.Path
+            path : str, pathlib.Path : Optional
                 Path/to/01BasicInputData/
-                or 'windows' or 'linux' for default values.
-                If None, 'linux' by default.
+                By default, finds the data path,
+                 which is known relative to this class.
 
         """
+        # TODO: Remove the 'linux' and 'windows' options. Instead, find the location automatically.
         # Verify path to data set.
         if path is None:
-            path = "linux"
-        if path == "linux":
-            _root = Path("/home/haakon/mastersproject/src/mastersproject/")
-            # _root = Path.cwd()  # should be path/to/mastersproject/src/mastersproject
-            self.data_path = _root / "GTS/01BasicInputData"
-        elif path == "windows":
-            _root = Path(
-                "C:/Users/Haakon/OneDrive/Dokumenter/FORSKNING/mastersproject/src/mastersproject"
-            )
+            path = Path(os.path.abspath(__file__))
+            _root = path.parents[2]
             self.data_path = _root / "GTS/01BasicInputData"
         else:
             self.data_path = Path(path)
 
-        logger.info(f"Data located at: {self.data_path}.")
+        logger.info(f"GTS-ISC data located at: {self.data_path}.")
         assert self.data_path.is_dir()
 
         # ========= CONSTANTS ==========================================================================================
