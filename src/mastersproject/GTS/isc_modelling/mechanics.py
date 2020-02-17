@@ -276,9 +276,19 @@ class ContactMechanicsISC(ContactMechanics):
         return lithostatic_stress
 
     def source(self, g):
+        """ Gravity term.
+
+        Gravity points downward, but we give the term
+        on the RHS of the equation, thus we take the
+        negative (i.e. the vector given will be
+        pointing upwards)
         """
-        """
-        return np.zeros(self.Nd * g.num_cells)
+
+        # Gravity term
+        values = np.zeros((self.Nd, g.num_cells))
+        scaling = self.length_scale / self.scalar_scale
+        values[2] = self.rock.lithostatic_pressure(g.cell_volumes) * scaling
+        return values.ravel("F")
 
     def set_rock(self):
         """ Set rock properties of the ISC rock.
