@@ -304,56 +304,7 @@ class ContactMechanicsISC(ContactMechanics):
         """ Set rock properties of the ISC rock.
         """
 
-        class GrimselGranodiorite(pp.UnitRock):
-            def __init__(self):
-                super().__init__()
-
-                self.PERMEABILITY = 1
-                self.THERMAL_EXPANSION = 1
-                self.DENSITY = 2700 * pp.KILOGRAM / (pp.METER ** 3)
-                self.POROSITY = 1
-
-                # Lamé parameters
-                self.YOUNG_MODULUS = 49 * pp.GIGA * pp.PASCAL  # Krietsch et al 2018 (Data Descriptor) - Dynamic E
-                self.POISSON_RATIO = 0.32  # Krietsch et al 2018 (Data Descriptor) - Dynamic Poisson
-                self.LAMBDA, self.MU = pp.params.rock.lame_from_young_poisson(
-                    self.YOUNG_MODULUS, self.POISSON_RATIO
-                )
-
-                self.FRICTION_COEFFICIENT = 0.2  # TEMPORARY: FRICTION COEFFICIENT TO 0.2
-                self.POROSITY = 0.7 / 100
-
-            def lithostatic_pressure(self, depth):
-                """ Lithostatic pressure.
-
-                NOTE: Returns positive values for positive depths.
-                Use the negative value when working with compressive
-                boundary conditions.
-                """
-                rho = self.DENSITY
-                return rho * depth * pp.GRAVITY_ACCELERATION
-
         self.rock = GrimselGranodiorite()
-
-    def set_mu(self, g):
-        """ Set mu
-
-        Set mu in linear elasticity stress-strain relation.
-        stress = mu * trace(eps) + 2 * lam * eps
-
-        Assumes self.set_rock() is called
-        """
-        return np.ones(g.num_cells) * self.rock.MU
-
-    def set_lam(self, g):
-        """ Set lambda
-
-        Set lambda in linear elasticity stress-strain relation.
-        stress = mu * trace(eps) + 2 * lam * eps
-
-        Assumes self.set_rock() is called
-        """
-        return np.ones(g.num_cells) * self.rock.LAMBDA
 
     def _set_friction_coefficient(self, g):
         """ The friction coefficient is uniform, and equal to 1.
@@ -371,8 +322,8 @@ class ContactMechanicsISC(ContactMechanics):
         for g, d in gb:
             if g.dim == self.Nd:
                 # Rock parameters
-                lam = self.set_lam(g)
-                mu = self.set_mu(g)
+                lam = self.rock.LAMBDA * np.ones(g.num_cells) / self.scalar_scale
+                mu = self.rock.MU * np.ones(g.num_cells) / self.scalar_scale
                 C = pp.FourthOrderTensor(mu, lam)
 
                 # BC and source values
@@ -593,3 +544,34 @@ class ContactMechanicsISCWithGrid(ContactMechanicsISC):
         # Overwrite method to ensure no new grid is created.
         assert self.gb is not None
         return
+
+# Define the rock type at Grimsel Test Site
+class GrimselGranodiorite(pp.UnitRock):
+    def __init__(self):
+        super().__init__()
+
+        self.PERMEABILITY = 1
+        self.THERMAL_EXPANSION = 1
+        self.DENSITY = 2700 * pp.KILOGRAM / (pp.METER ** 3)
+        self.POROSITY = 1
+
+        # Lamé parameters
+        self.YOUNG_MODULUS = 49 * pp.GIGA * pp.PASCAL  # Krietsch et al 2018 (Data Descriptor) - Dynamic E
+        self.POISSON_RATIO = 0.32  # Krietsch et al 2018 (Data Descriptor) - Dynamic Poisson
+        self.LAMBDA, self.MU = pp.params.rock.lame_from_young_poisson(
+            self.YOUNG_MODULUS, self.POISSON_RATIO
+        )
+
+        self.FRICTION_COEFFICIENT = 0.2  # TEMPORARY: FRICTION COEFFICIENT TO 0.2
+        self.POROSITY = 0.7 / 100
+
+    def lithostatic_pressure(self, depth):
+        """ Lithostatic pressure.
+
+        NOTE: Returns positive values for positive depths.
+        Use the negative value when working with compressive
+        boundary conditions.
+        """
+        rho = self.DENSITY
+        return rho * depth * pp.GRAVITY_ACCELERATION
+
