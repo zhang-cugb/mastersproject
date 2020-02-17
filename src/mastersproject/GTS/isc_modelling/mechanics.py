@@ -130,6 +130,13 @@ class ContactMechanicsISC(ContactMechanics):
             )
             path = f"{self.viz_folder_name}/gmsh_frac_file"
             self.gb = network.mesh(mesh_args=self.mesh_args, file_name=path)
+
+            # --- Scale the grid ---
+            # self.gb_export = self.gb.copy()  #TODO: Do deep copy of grid bucket or generate separate gb from .msh file
+            for g, _ in self.gb:
+                g.nodes = g.nodes / self.length_scale
+            self.gb.compute_geometry()  # TODO: Inefficient method. Calls g.compute_geometry() v. many times.
+
             pp.contact_conditions.set_projections(self.gb)
             self.Nd = self.gb.dim_max()
 

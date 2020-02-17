@@ -250,14 +250,12 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         In the 3D rock matrix, we use 1.
         """
 
-        viscosity = self.fluid.dynamic_viscosity()  # / self.scalar_scale
+        viscosity = self.fluid.dynamic_viscosity() / self.scalar_scale
         gb = self.gb
         for g, d in gb:
-            k = self.grid_permeability_from_transmissivity(g)
+            k = self.grid_permeability_from_transmissivity(g) / (self.length_scale ** 2)
 
-            kxx = (
-                    k / viscosity * self.scalar_scale # / self.length_scale ** 2
-            )
+            kxx = k / viscosity
 
             k_tensor = pp.SecondOrderTensor(kxx)
             d[pp.PARAMETERS][self.scalar_parameter_key]["second_order_tensor"] = k_tensor
@@ -277,6 +275,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
                 "second_order_tensor"
             ].values[0, 0]
             # Division through half the aperture represents taking the (normal) gradient
+            # TODO: Check scaling for 'kn'
             kn = mg.slave_to_mortar_int() * np.divide(k_s, a / 2) * self.scalar_scale
             d = pp.initialize_data(
                 e, d, self.scalar_parameter_key, {"normal_diffusivity": kn}
@@ -384,51 +383,10 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         Credits: PorePy paper
         """
 
-        # Rock
-        class GrimselGranodiorite(pp.UnitRock):
-            def __init__(self):
-                super().__init__()
-
-                self.THERMAL_EXPANSION = 1
-                self.DENSITY = 2700 * pp.KILOGRAM / (pp.METER ** 3)
-
-                # Lamé parameters
-                self.YOUNG_MODULUS = 49 * pp.GIGA * pp.PASCAL  # Krietsch et al 2018 (Data Descriptor) - Dynamic E
-                self.POISSON_RATIO = 0.32  # Krietsch et al 2018 (Data Descriptor) - Dynamic Poisson
-                self.LAMBDA, self.MU = pp.params.rock.lame_from_young_poisson(
-                    self.YOUNG_MODULUS, self.POISSON_RATIO
-                )
-
-                self.FRICTION_COEFFICIENT = 0.4
-                self.POROSITY = 0.7 / 100
-
-        self.rock = GrimselGranodiorite()
+        super().set_rock()
 
         # Fluid. Temperature at ISC is 11 degrees average.
         self.fluid = pp.Water(theta_ref=11)
-
-    def set_mu(self, g):
-        """ Set mu
-
-        Set mu in linear elasticity stress-strain relation.
-        stress = mu * trace(eps) + 2 * lam * eps
-        """
-        return np.ones(g.num_cells) * self.rock.MU
-
-    def set_lam(self, g):
-        """ Set lambda
-
-        Set lambda in linear elasticity stress-strain relation.
-        stress = mu * trace(eps) + 2 * lam * eps
-        """
-        return np.ones(g.num_cells) * self.rock.LAMBDA
-
-    def _set_friction_coefficient(self, g):
-        """ The friction coefficient is uniform, and equal to 1.
-
-        Assumes self.set_rock_and_fluid() is called
-        """
-        return np.ones(g.num_cells) * self.rock.FRICTION_COEFFICIENT
 
     def set_mechanics_parameters(self):
         """ Set mechanics parameters for the simulation.
@@ -931,8 +889,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         Unscaled depth. We center the domain at 480m below the surface.
         (See Krietsch et al, 2018a)
         """
-        return 480.0 * pp.METER * coords[2]
-        # return 480.0 * pp.METER - self.length_scale * coords[2]
+        return 480.0 * pp.METER - self.length_scale * coords[2]
 
     def _is_nonlinear_problem(self):
         """
