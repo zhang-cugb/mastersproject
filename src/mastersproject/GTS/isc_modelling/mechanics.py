@@ -41,7 +41,6 @@ class ContactMechanicsISC(ContactMechanics):
             mesh_args: Mapping[str, int],
             bounding_box: Mapping[str, int],
             shearzone_names: List[str],
-            # source_scalar_borehole_shearzone: Mapping[str, str],
             scales: Mapping[str, float],
             stress: np.ndarray,
             solver: str,
@@ -66,9 +65,6 @@ class ContactMechanicsISC(ContactMechanics):
             Required keys: 'xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax'.
         shearzone_names : List[str]
             Which shear-zones to include in simulation
-        # source_scalar_borehole_shearzone : Mapping[str, str]
-        #     Which borehole and shear-zone intersection to do injection in.
-        #     Required keys: 'shearzone', 'borehole'
         scales : Mapping[str, float]
             Length scale and scalar variable scale.
             Required keys: 'scalar_scale', 'length_scale'
@@ -248,7 +244,7 @@ class ContactMechanicsISC(ContactMechanics):
         # lithostatic_bc = lithostatic_bc * outward_normals
         #
         # # -- Scale horizontal gravitational forces --
-        # scl_x = 1.061429  # TODO: Find literature on the horizontal gravity scaling
+        # scl_x = 1.061429
         # scl_y = 0.826675
         # # Scale east-west:
         # lithostatic_bc[:, np.logical_or(east, west)] *= scl_x
@@ -282,6 +278,7 @@ class ContactMechanicsISC(ContactMechanics):
         # TODO This could perhaps be integrated directly in the above method.
         """
         # TODO: Only do computations over 'all_bf'.
+        # TODO: Test this method
         true_stress_depth = self.box['zmax']  # The true_stress_depth should be unscaled.
 
         # We assume the relative sizes of all stress components scale with sigma_zz.
@@ -292,8 +289,6 @@ class ContactMechanicsISC(ContactMechanics):
         rho_g_h = self.rock.lithostatic_pressure(relative_depths)
         lithostatic_stress = stress_scaler.dot(np.multiply(outward_normals, rho_g_h))
         return lithostatic_stress
-
-
 
     def source(self, g):
         """
