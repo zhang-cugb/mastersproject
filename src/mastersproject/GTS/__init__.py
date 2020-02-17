@@ -35,7 +35,6 @@ from GTS.isc_modelling.setup import (
 # Contact mechanics model
 from GTS.isc_modelling.mechanics import (
     ContactMechanicsISC,
-    ContactMechanicsIsotropicISC,
 )
 
 # Contact Mechanics Biot
