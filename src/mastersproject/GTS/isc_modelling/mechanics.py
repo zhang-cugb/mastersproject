@@ -34,85 +34,63 @@ class ContactMechanicsISC(ContactMechanics):
     project at the Grimsel Test Site (GTS).
     """
 
-    def __init__(
-            self,
-            viz_folder_name: str,
-            result_file_name: str,
-            mesh_args: Mapping[str, int],
-            bounding_box: Mapping[str, int],
-            shearzone_names: List[str],
-            scales: Mapping[str, float],
-            stress: np.ndarray,
-            solver: str,
-    ):
+    def __init__(self, params: dict):
         """ Initialize a Contact Mechanics model for GTS-ISC geometry.
 
         Parameters
         ----------
-        viz_folder_name : str
-            Absolute path to folder where grid and results will be stored
-        result_file_name : str
-            Root name for simulation result files
-        isc_data_path : str
-            Path to isc data: path/to/GTS/01BasicInputData
-            Alternatively 'linux' or 'windows' for certain default paths (only applies to haakon's computers).
-        --- SIMULATION RELATED PARAMETERS ---
-        mesh_args : Mapping[str, int]
-            Arguments for meshing of domain.
-            Required keys: 'mesh_size_frac', 'mesh_size_min, 'mesh_size_bound'
-        bounding_box : Mapping[str, int]
-            Bounding box of domain
-            Required keys: 'xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax'.
-        shearzone_names : List[str]
-            Which shear-zones to include in simulation
-        scales : Mapping[str, float]
-            Length scale and scalar variable scale.
-            Required keys: 'scalar_scale', 'length_scale'
-        solver : str, {'direct', 'pyamg'}
-            Which solver to use
-        --- PHYSICAL PARAMETERS ---
-        stress : np.ndarray
-            Stress tensor for boundary conditions
+        params : dict
+            Should contain the following key-value pairs:
+                viz_folder_name : str
+                    Absolute path to folder where grid and results will be stored
+                --- SIMULATION RELATED PARAMETERS ---
+                mesh_args : dict[str, int]
+                    Arguments for meshing of domain.
+                    Required keys: 'mesh_size_frac', 'mesh_size_min, 'mesh_size_bound'
+                bounding_box : dict[str, int]
+                    Bounding box of domain
+                    Required keys: 'xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax'.
+                shearzone_names : List[str]
+                    Which shear-zones to include in simulation
+                length_scale, scalar_scale : float
+                    Length scale and scalar variable scale.
+                solver : str : {'direct', 'pyamg'}
+                    Which solver to use
+                --- PHYSICAL PARAMETERS ---
+                stress : np.ndarray
+                    Stress tensor for boundary conditions
         """
 
-        self.name = "contact mechanics on ISC dataset"
-        logger.info(f"Running: {self.name}")
-
-        params = {
-            'folder_name': viz_folder_name,  # saved in self.viz_folder_name
-            'linear_solver': solver,
-        }
-        super().__init__(params=params)
-
+        logger.info(f"Initializing contact mechanics on ISC dataset")
         # Root name of solution files
-        self.file_name = result_file_name
+        self.file_name = 'main_run'
 
         # Scaling coefficients
-        self.scalar_scale = scales['scalar_scale']
-        self.length_scale = scales['length_scale']
-
-        # --- PHYSICAL PARAMETERS ---
-        self.stress = stress
-        self.set_rock()
-
-        # --- BOUNDARY, INITIAL, SOURCE CONDITIONS ---
-        # self.source_scalar_borehole_shearzone = source_scalar_borehole_shearzone
+        self.scalar_scale = params.pop('scalar_scale')
+        self.length_scale = params.pop('length_scale')
 
         # --- FRACTURES ---
-        self.shearzone_names = shearzone_names
+        self.shearzone_names = params.pop('shearzone_names')
         self.n_frac = len(self.shearzone_names) if self.shearzone_names else 0
         # Initialize data storage for normal and tangential jumps
         self.u_jumps_tangential = np.empty((1, self.n_frac))
         self.u_jumps_normal = np.empty((1, self.n_frac))
 
+        # --- PHYSICAL PARAMETERS ---
+        self.stress = params.pop('stress')
+        self.set_rock()
+
         # --- COMPUTATIONAL MESH ---
-        self.mesh_args = mesh_args
-        self.box = bounding_box
+        self.mesh_args = params.pop('mesh_args')
+        self.box = params.pop('bounding_box')
         self.gb = None
         self.Nd = None
 
         # --- GTS-ISC DATA ---
         self.isc = gts.ISCData()
+
+        # params should have 'folder_name' and 'linear_solver' as keys
+        super().__init__(params=params)
 
     def create_grid(self, overwrite_grid=False):
         """ Create a GridBucket of a 3D domain with fractures
@@ -509,23 +487,9 @@ class ContactMechanicsISCWithGrid(ContactMechanicsISC):
     """ Solve contact mechanics with a pre-existing grid.
     """
 
-    def __init__(
-            self,
-            viz_folder_name: str,
-            result_file_name: str,
-            isc_data_path: str,
-            mesh_args: Mapping[str, int],
-            bounding_box: Mapping[str, int],
-            shearzone_names: List[str],
-            # source_scalar_borehole_shearzone: Mapping[str, str],
-            scales: Mapping[str, float],
-            stress: np.ndarray,
-            solver: str,
-            gb: pp.GridBucket
-    ):
+    def __init__(self, params, gb: pp.GridBucket):
 
-        super().__init__(viz_folder_name, result_file_name, isc_data_path, mesh_args, bounding_box, shearzone_names,
-                         scales, stress, solver)
+        super().__init__(params)
 
         self.gb = gb
         self.Nd = gb.dim_max()
@@ -534,6 +498,7 @@ class ContactMechanicsISCWithGrid(ContactMechanicsISC):
         # Overwrite method to ensure no new grid is created.
         assert self.gb is not None
         return
+
 
 # Define the rock type at Grimsel Test Site
 class GrimselGranodiorite(pp.UnitRock):

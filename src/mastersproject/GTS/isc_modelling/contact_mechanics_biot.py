@@ -20,6 +20,7 @@ import porepy as pp
 import numpy as np
 import scipy.sparse as sps
 from porepy.models.contact_mechanics_biot_model import ContactMechanicsBiot
+from GTS.isc_modelling.mechanics import ContactMechanicsISC
 
 import GTS as gts
 
@@ -31,69 +32,48 @@ logger = logging.getLogger(__name__)
 
 # TODO: Re-introduce all scaling when it is properly understood.
 # TODO: Multiple inheritance from porepy and ContactMechanicsISC
-class ContactMechanicsBiotISC(ContactMechanicsBiot):
+class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
+    """
+    TODO: Write class description
     """
 
-    Attributes
-    ----------
-    name : str
-        descriptive name of this class
-    file_name : str
-        Root name of solution files
-    scalar_scale : float
-        Scale of scalar variable
-    length_scale : float
-        Scale of lengths
-
-    """
-
-    def __init__(
-            self,
-            viz_folder_name: str,
-            # result_file_name: str,
-            mesh_args: Mapping[str, int],
-            bounding_box: Mapping[str, int],
-            shearzone_names: List[str],
-            source_scalar_borehole_shearzone: Mapping[str, str],
-            scales: Mapping[str, float],
-            stress: np.ndarray,
-            solver: str,
-    ):
+    def __init__(self, params: dict):
         """ Initialize the Contact Mechanics Biot
 
         Parameters
         ----------
-        viz_folder_name : str
-            Absolute path to folder where grid and results will be stored
-        # result_file_name : str
-        #     Root name for simulation result files
-        mesh_args : Mapping[str, int]
-            Arguments for meshing of domain.
-            Required keys: 'mesh_size_frac', 'mesh_size_min, 'mesh_size_bound'
-        bounding_box : Mapping[str, int]
-            Bounding box of domain
-            Required keys: 'xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax'.
-        shearzone_names : List[str]
-            Which shear-zones to include in simulation
-        source_scalar_borehole_shearzone : Mapping[str, str]
-            Which borehole and shear-zone intersection to do injection in.
-            Required keys: 'shearzone', 'borehole'
-        scales : Mapping[str, float]
-            Length scale and scalar variable scale.
-            Required keys: 'scalar_scale', 'length_scale'
+        params : dict
+            Should contain the following key-value pairs:
+                viz_folder_name : str
+                    Absolute path to folder where grid and results will be stored
+                mesh_args : dict[str, int]
+                    Arguments for meshing of domain.
+                    Required keys: 'mesh_size_frac', 'mesh_size_min, 'mesh_size_bound'
+                bounding_box : d[str, int]
+                    Bounding box of domain
+                    Required keys: 'xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax'.
+                shearzone_names : List[str]
+                    Which shear-zones to include in simulation
+                source_scalar_borehole_shearzone : dict[str, str]
+                    Which borehole and shear-zone intersection to do injection in.
+                    Required keys: 'shearzone', 'borehole'
+                # length_scale, scalar_scale : float
+                #     Length scale and scalar variable scale.
         """
 
-        self.name = "contact mechanics biot on ISC dataset"
-        logger.info(f"Running: {self.name}")
+        logger.info(f"Initializing contact mechanics biot on ISC dataset")
 
-        params = {
-            'folder_name': viz_folder_name,  # saved in self.viz_folder_name
-            'linear_solver': solver,
-        }
+        # --- BOUNDARY, INITIAL, SOURCE CONDITIONS ---
+        self.source_scalar_borehole_shearzone = params.pop('source_scalar_borehole_shearzone')
+
+        # Scaling coefficients
+        self.scalar_scale = 1 * pp.GIGA
+        self.length_scale = 100
+        params['scalar_scale'] = self.scalar_scale  # Temporary
+        params['length_scale'] = self.length_scale  # Temporary
+
         super().__init__(params=params)
 
-        # Root name of solution files
-        # self.file_name = result_file_name
         # Set file name of the pre-run first.
         self.file_name = 'initialize_run'
 
@@ -104,12 +84,7 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         self.current_phase = 0
         self.current_injection_rate = 0
 
-        # Scaling coefficients
-        self.scalar_scale = 1 * pp.GIGA  # scales['scalar_scale']
-        self.length_scale = 1  # scales['length_scale']
-
         # --- PHYSICAL PARAMETERS ---
-        self.stress = stress
         self.set_rock_and_fluid()
 
         self.transmissivity = {
@@ -129,135 +104,20 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
             None: 1,  # 3D matrix
         }
 
-        # --- BOUNDARY, INITIAL, SOURCE CONDITIONS ---
-        self.source_scalar_borehole_shearzone = source_scalar_borehole_shearzone
-
-        # --- FRACTURES ---
-        self.shearzone_names = shearzone_names
-        self.n_frac = len(self.shearzone_names)
-        # Initialize data storage for normal and tangential jumps
-        self.u_jumps_tangential = np.empty((1, self.n_frac))
-        self.u_jumps_normal = np.empty((1, self.n_frac))
-
-        # --- COMPUTATIONAL MESH ---
-        self.mesh_args = mesh_args
-        self.box = bounding_box
-        self.gb = None
-        self.Nd = None
-
-        # --- GTS-ISC DATA ---
-        self.isc = gts.ISCData()
-
-    @timer
-    @trace
-    def create_grid(self, overwrite_grid=False):
-        """ Create a GridBucket of a 3D domain with fractures
-        defined by the ISC dataset.
-
-        Parameters
-        overwrite_grid : bool
-            Overwrite an existing grid.
-
-        The method requires the following attribute:
-            mesh_args (dict): Containing the mesh sizes.
-
-        The method assigns the following attributes to self:
-            gb (pp.GridBucket): The produced grid bucket.
-            box (dict): The bounding box of the domain, defined through minimum and
-                maximum values in each dimension.
-            Nd (int): The dimension of the matrix, i.e., the highest dimension in the
-                grid bucket.
-
-        """
-        if (self.gb is None) or overwrite_grid:
-            network = gts.fracture_network(
-                shearzone_names=self.shearzone_names,
-                export=True,
-                path="linux",
-                domain=self.box,
-            )
-            path = f"{self.viz_folder_name}/gmsh_frac_file"
-            self.gb = network.mesh(mesh_args=self.mesh_args, file_name=path)
-            pp.contact_conditions.set_projections(self.gb)
-            self.Nd = self.gb.dim_max()
-
-            # TODO: Make this procedure "safe".
-            #   E.g. assign names by comparing normal vector and centroid.
-            #   Currently, we assume that fracture order is preserved in creation process.
-            #   This may be untrue if fractures are (completely) split in the process.
-            # Set fracture grid names:
-            self.gb.add_node_props(keys="name")  # Add 'name' as node prop to all grids.
-            fracture_grids = self.gb.get_grids(lambda g: g.dim == 2)
-            for i, sz_name in enumerate(self.shearzone_names):
-                self.gb.set_node_prop(fracture_grids[i], key="name", val=sz_name)
-            # Use self.gb.node_props(g, 'name') to get value.
-        else:
-            assert self.Nd is not None
-
-            # We require that 2D grids have a name.
-            g = self.gb.get_grids(lambda g: g.dim == 2)
-            for i, sz in enumerate(self.shearzone_names):
-                assert self.gb.node_props(g[i], "name") is not None
-
-    def faces_to_fix(self, g):
-        """
-        Identify three boundary faces to fix (u=0). This should allow us to assign
-        Neumann "background stress" conditions on the rest of the boundary faces.
-        Credits: PorePy paper
-        """
-        all_bf, *_ = self.domain_boundary_sides(g)
-        point = np.array(
-            [
-                [(self.box["xmin"] + self.box["xmax"]) / 2],
-                [(self.box["ymin"] + self.box["ymax"]) / 2],
-                [self.box["zmin"]],
-            ]
-        )
-        distances = pp.distances.point_pointset(point, g.face_centers[:, all_bf])
-        indexes = np.argsort(distances)
-        faces = all_bf[indexes[: self.Nd]]
-        return faces
-
     def bc_type_mechanics(self, g):
         """
-        We set Neumann values imitating an anisotropic background stress regime on all
-        but the fracture faces, which are fixed to ensure a unique solution.
-        credits: porepy article
+        We set Neumann values on all but a few boundary faces. Fracture faces also set to Dirichlet.
+
+        Three boundary faces (see method faces_to_fix(self, g)) are set to 0 displacement (Dirichlet).
+        This ensures a unique solution to the problem.
+        Furthermore, the fracture faces are set to 0 displacement (Dirichlet).
         """
-        all_bf, *_ = self.domain_boundary_sides(g)
-        faces = self.faces_to_fix(g)
-        bc = pp.BoundaryConditionVectorial(g, faces, ["dir"] * faces.size)
-        frac_face = g.tags["fracture_faces"]
-        bc.is_neu[:, frac_face] = False
-        bc.is_dir[:, frac_face] = True
-        return bc
+        return super().bc_type(g)
 
     def bc_values_mechanics(self, g):
         """ Mechanical stress values as ISC
         """
-        # Retrieve the domain boundary
-        all_bf, *_ = self.domain_boundary_sides(g)
-
-        # We provide the integrated stress (i.e. traction)
-        A = g.face_areas
-
-        # Get outward facing normal vectors for domain boundary, weighted for face area
-        # 1. Get normal vectors on the boundary
-        bf_normals = g.face_normals[:, all_bf]
-        # 2. Adjust direction so they face outwards
-        flip_normal_to_outwards = np.where(g.cell_face_as_dense()[0, all_bf] >= 0, 1, -1)
-        outward_normals = bf_normals * flip_normal_to_outwards
-
-        # Boundary values
-        bc_values = np.zeros((g.dim, g.num_faces))
-
-        bf_stress = np.dot(self.stress, outward_normals)
-        bc_values[:, all_bf] = bf_stress * A[all_bf] / self.scalar_scale
-
-        faces = self.faces_to_fix(g)
-        bc_values[:, faces] = 0
-
-        return bc_values.ravel("F")
+        return super().bc_values(g)
 
     def bc_values_scalar(self, g):
         """ Hydrostatic flow values
@@ -348,21 +208,8 @@ class ContactMechanicsBiotISC(ContactMechanicsBiot):
         return values
 
     def source_mechanics(self, g):
-        """
-        Gravity term.
-        Credits: PorePy paper
-        """
-        # TODO: Gravity term.
-        # values = np.zeros((self.Nd, g.num_cells))
-        # values[2] = (
-        #         pp.GRAVITY_ACCELERATION
-        #         * self.rock.DENSITY
-        #         * g.cell_volumes
-        #         * self.length_scale
-        #         / self.scalar_scale
-        # )
-        # return values.ravel("F")
-        return np.zeros(self.Nd * g.num_cells)
+        """ Scaled gravity term. """
+        return super().source(g)
 
     def _permeability_from_transmissivity(self, T, b, theta=None):
         """ Compute permeability [m2] from transmissivity [m2/s]
