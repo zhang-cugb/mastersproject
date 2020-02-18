@@ -124,7 +124,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         credit: porepy paper
         """
         # TODO: Hydrostatic scalar BC's (values).
-        all_bf, *_ = self.domain_boundary_sides(g)
+        all_bf, *_ = super().domain_boundary_sides(g)
         bc_values = np.zeros(g.num_faces)
         depth = self._depth(g.face_centers[:, all_bf])
 
@@ -137,7 +137,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         """ Known boundary conditions (Dirichlet)
         """
         # Define boundary regions
-        all_bf, *_ = self.domain_boundary_sides(g)
+        all_bf, *_ = super().domain_boundary_sides(g)
         # Define boundary condition on faces
         return pp.BoundaryCondition(g, all_bf, ["dir"] * all_bf.size)
 
@@ -423,12 +423,12 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
                         "source": source_val,
                         "fourth_order_tensor": C,
                         "time_step": self.time_step,
-                        "biot_alpha": self.biot_alpha(g),
+                        "biot_alpha": super().biot_alpha(g),
                     },
                 )
 
             elif g.dim == self.Nd - 1:
-                friction = self._set_friction_coefficient(g)
+                friction = super()._set_friction_coefficient(g)
                 pp.initialize_data(
                     g,
                     d,
@@ -458,7 +458,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
             source_values = self.source_scalar(g)  # Already scaled
 
             # Biot alpha
-            alpha = self.biot_alpha(g)
+            alpha = super().biot_alpha(g)
 
             # Initialize data
             pp.initialize_data(
@@ -643,14 +643,14 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         # discretizing only the term you need!
 
         # TODO: Discretize only the terms you need.
-        self.discretize()
+        super().discretize()
 
     @timer
     @trace
     def after_newton_convergence(self, solution, errors, iteration_counter):
         """ Overwrite from parent to export solution steps."""
         self.assembler.distribute_variable(solution)
-        self.save_mechanical_bc_values()
+        super().save_mechanical_bc_values()
         self.export_step()
 
     def after_simulation(self):
@@ -780,20 +780,20 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         ONLY CHANGE FROM PARENT:
         - Set self.viz with custom method.
         """
-        self.create_grid()
+        super().create_grid()
         self.Nd = self.gb.dim_max()
         self.well_cells()  # Tag the well cells
         self.set_parameters()
-        self.assign_variables()
-        self.assign_discretizations()
+        super().assign_variables()
+        super().assign_discretizations()
         self.initial_condition()
-        self.discretize()
-        self.initialize_linear_solver()
+        super().discretize()
+        super().initialize_linear_solver()
 
         self.set_viz()
 
     def check_convergence(self, solution, prev_solution, init_solution, nl_params):
-        g_max = self._nd_grid()
+        g_max = super()._nd_grid()
 
         if not self._is_nonlinear_problem():
             # At least for the default direct solver, scipy.sparse.linalg.spsolve, no
