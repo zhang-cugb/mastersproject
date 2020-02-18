@@ -55,13 +55,12 @@ def __setup_logging(path, log_fname="results.log"):
 def run_biot_model(
         *,
         viz_folder_name: str = None,
-        result_file_name: str = None,
-        isc_data_path: str = None,
         mesh_args: Mapping[str, int] = None,
         bounding_box: Mapping[str, int] = None,
         shearzone_names: List[str] = None,
         source_scalar_borehole_shearzone: Mapping[str, str] = None,
-        scales: Mapping[str, float] = None,
+        length_scale: float = None,
+        scalar_scale: float = None,
 ):
     """ Send all initialization parameters to contact mechanics biot class
 
@@ -70,13 +69,6 @@ def run_biot_model(
         viz_folder_name : str
             Absolute path to folder where grid and results will be stored
             Default: /home/haakon/mastersproject/src/mastersproject/GTS/isc_modelling/results/default
-        result_file_name : str
-            Root name for simulation result files
-            Default: 'main_run'
-        isc_data_path : str
-            Path to isc data: path/to/GTS/01BasicInputData
-            Alternatively 'linux' or 'windows' for certain default paths (only applies to haakon's computers).
-            Default: 'linux'
         mesh_args : Mapping[str, int]
             Arguments for meshing of domain.
             Required keys: 'mesh_size_frac', 'mesh_size_min, 'mesh_size_bound'
@@ -88,11 +80,11 @@ def run_biot_model(
         source_scalar_borehole_shearzone : Mapping[str, str]
             Which borehole and shear-zone intersection to do injection in.
             Required keys: 'shearzone', 'borehole'
-        scales : Mapping[str, float]
+        length_scale, scalar_scale : float : Optional
             Length scale and scalar variable scale.
-            Required keys: 'scalar_scale', 'length_scale'
-            Defaults to 1 for both.
         """
+
+    params = {}
     # ------------------------------------------
     # --- FOLDER AND FILE RELATED PARAMETERS ---
     # ------------------------------------------
@@ -104,6 +96,7 @@ def run_biot_model(
             "/home/haakon/mastersproject/src/mastersproject/GTS/isc_modelling/results/new_biot/default"
         )
     viz_folder_name = str(viz_folder_name)
+    params['viz_folder_name'] = viz_folder_name
     # Create viz folder path if it does not already exist
     if not os.path.exists(viz_folder_name):
         os.makedirs(viz_folder_name, exist_ok=True)
@@ -120,26 +113,23 @@ def run_biot_model(
     #     result_file_name = 'main_run'
     # logger.info(f"Root file name of results: {result_file_name}")
 
-    # Get data path to ISC data
-    if isc_data_path is None:
-        isc_data_path = 'linux'
-
     # ------------------------------------
     # --- MODELLING RELATED PARAMETERS ---
     # ------------------------------------
 
     # Set mesh arguments
     if mesh_args is None:
-        # mesh_size = 10
-        # mesh_args = {  # A very coarse grid
-        #     "mesh_size_frac": mesh_size,
-        #     "mesh_size_min": mesh_size,
-        #     "mesh_size_bound": mesh_size,
-        # }
-        sz = 10
-        mesh_args = {'mesh_size_frac': sz,
-                     'mesh_size_min': 0.1 * sz,
-                     'mesh_size_bound': 6 * sz}
+        mesh_size = 14
+        mesh_args = {  # A very coarse grid
+            "mesh_size_frac": mesh_size,
+            "mesh_size_min": mesh_size,
+            "mesh_size_bound": mesh_size,
+        }
+        # sz = 10
+        # mesh_args = {'mesh_size_frac': sz,
+        #              'mesh_size_min': 0.1 * sz,
+        #              'mesh_size_bound': 6 * sz}
+    params['mesh_args'] = mesh_args
     logger.info(f"Mesh arguments: \n {mesh_args}")
 
     # Set bounding box
@@ -152,23 +142,26 @@ def run_biot_model(
             "zmin": 0,
             "zmax": 50,
         }
+    params['bounding_box'] = bounding_box
     logger.info(f"Bounding box: \n {bounding_box}")
 
     # Set which shear-zones to include in simulation
     if shearzone_names is None:
         shearzone_names = ["S1_1", "S1_2", "S1_3", "S3_1", "S3_2"]
+    params['shearzone_names'] = shearzone_names
     logger.info(f"Shear zones in simulation: \n {shearzone_names}")
 
     # Set length scale and scalar scale
-    if scales is None:
-        scales = {
-            'scalar_scale': 1,
-            'length_scale': 1,
-        }
-    logger.info(f"Variable scaling: \n {scales}")
+    if length_scale is not None:
+        params['length_scale'] = length_scale
+        logger.info(f"Non-default length scale: {length_scale}")
+    if scalar_scale is not None:
+        params['scalar_scale'] = scalar_scale
+        logger.info(f"Non-default scalar scale: {scalar_scale}")
 
     # Set solver. 'pyamg' or 'direct'.
     solver = 'direct'
+    params['solver'] = solver
     logger.info(f"Solver type: {solver}")
 
     # Set which borehole / shearzone to inject fluid to
@@ -178,6 +171,7 @@ def run_biot_model(
             "shearzone": "S1_2",
             "borehole": "INJ1",
         }
+    params['source_scalar_borehole_shearzone'] = source_scalar_borehole_shearzone
     logger.info(f"Injection location: \n {source_scalar_borehole_shearzone}")
 
     # TODO: Set custom time parameters with a class with only one method: _set_time_parameters.
@@ -188,23 +182,13 @@ def run_biot_model(
     # ---------------------------
 
     stress = stress_tensor()
+    params['stress'] = stress
     logger.info(f"Stress tensor: \n {stress}")
     # -------------------
     # --- SETUP MODEL ---
     # -------------------
 
-    setup = gts.ContactMechanicsBiotISC(
-        viz_folder_name=viz_folder_name,
-        # result_file_name=result_file_name,
-        isc_data_path=isc_data_path,
-        mesh_args=mesh_args,
-        bounding_box=bounding_box,
-        shearzone_names=shearzone_names,
-        source_scalar_borehole_shearzone=source_scalar_borehole_shearzone,
-        scales=scales,
-        stress=stress,
-        solver=solver,
-    )
+    setup = gts.ContactMechanicsBiotISC(params)
     # -------------------------
     # --- SOLVE THE PROBLEM ---
     # -------------------------
