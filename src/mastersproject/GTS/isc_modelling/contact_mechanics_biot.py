@@ -173,7 +173,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         if result.empty:
             raise ValueError("No intersection found.")
 
-        pts = result.to_numpy().T
+        pts = result.to_numpy().T / self.length_scale
         assert pts.shape[1] == 1, "Should only be one intersection"
 
         for g, d in self.gb:
