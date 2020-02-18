@@ -387,6 +387,12 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         # Fluid. Temperature at ISC is 11 degrees average.
         self.fluid = pp.Water(theta_ref=11)
 
+    def set_parameters(self):
+        """ Set biot parameters
+        """
+        self.set_mechanics_parameters()
+        self.set_scalar_parameters()
+
     def set_mechanics_parameters(self):
         """ Set mechanics parameters for the simulation.
         """
