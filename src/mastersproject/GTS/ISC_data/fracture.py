@@ -11,6 +11,7 @@ fracture_network(shearzone_names, export: bool = False, path=None, **network_kwa
 """
 
 import logging
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -87,17 +88,12 @@ def fracture_network(
                 keys 'xmin', 'xmax', etc. of domain boundaries.
 
     """
-    if isinstance(path, str):
-        if path == "linux":
-            _root = Path("/home/haakon/mastersproject/src/mastersproject/")
-            # _root = Path.cwd()  # should be path/to/mastersproject/src/mastersproject
-        elif path == "windows":
-            _root = Path(
-                "C:/Users/Haakon/OneDrive/Dokumenter/FORSKNING/mastersproject/src/mastersproject"
-            )
-        else:
-            raise ValueError("Invalid input path type")
-        path = _root / "GTS/01BasicInputData"
+    if path is None:
+        path = Path(os.path.abspath(__file__))
+        _root = path.parents[2]
+        data_path = _root / "GTS/01BasicInputData"
+    else:
+        data_path = Path(path)
 
     if isinstance(shearzone_names, str):
         shearzone_names = [shearzone_names]
@@ -106,7 +102,7 @@ def fracture_network(
         # This will mesh only a 3d domain.
         fractures = None
     else:
-        convex = convex_plane(shearzone_names, coord_system="gts", path=path)
+        convex = convex_plane(shearzone_names, coord_system="gts", path=data_path)
         fractures = [
             pp.Fracture(
                 convex.loc[convex.shearzone == sz, ("x_proj", "y_proj", "z_proj")]

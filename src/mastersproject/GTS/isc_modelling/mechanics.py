@@ -125,7 +125,6 @@ class ContactMechanicsISC(ContactMechanics):
             network = gts.fracture_network(
                 shearzone_names=self.shearzone_names,
                 export=True,
-                path=self.isc_data_path,
                 domain=self.box,
             )
             path = f"{self.viz_folder_name}/gmsh_frac_file"
