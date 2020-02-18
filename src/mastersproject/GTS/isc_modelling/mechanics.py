@@ -135,6 +135,7 @@ class ContactMechanicsISC(ContactMechanics):
             for g, _ in self.gb:
                 g.nodes = g.nodes / self.length_scale
             self.gb.compute_geometry()  # TODO: Inefficient method. Calls g.compute_geometry() v. many times.
+            self.box = self.gb.bounding_box(as_dict=True)
 
             pp.contact_conditions.set_projections(self.gb)
             self.Nd = self.gb.dim_max()
@@ -248,7 +249,7 @@ class ContactMechanicsISC(ContactMechanics):
         """
         # TODO: Only do computations over 'all_bf'.
         # TODO: Test this method
-        true_stress_depth = self.box['zmax']  # The true_stress_depth should be unscaled.
+        true_stress_depth = self.box['zmax'] * self.length_scale
 
         # We assume the relative sizes of all stress components scale with sigma_zz.
         stress_scaler = self.stress / self.stress[2, 2]
