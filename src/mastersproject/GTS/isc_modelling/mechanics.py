@@ -92,7 +92,7 @@ class ContactMechanicsISC(ContactMechanics):
         # params should have 'folder_name' and 'linear_solver' as keys
         super().__init__(params=params)
 
-    def create_grid(self, overwrite_grid=False):
+    def create_grid(self, overwrite_grid: bool = False):
         """ Create a GridBucket of a 3D domain with fractures
         defined by the ISC dataset.
 
@@ -160,7 +160,7 @@ class ContactMechanicsISC(ContactMechanics):
                 assert (self.gb.node_props(g[i], "name") is not None), \
                     "All 2D grids must have a name."
 
-    def faces_to_fix(self, g):
+    def faces_to_fix(self, g: pp.Grid):
         """ Fix some boundary faces to dirichlet to ensure unique solution to problem.
 
         Identify three boundary faces to fix (u=0). This should allow us to assign
@@ -181,7 +181,7 @@ class ContactMechanicsISC(ContactMechanics):
         faces = all_bf[indexes[: self.Nd]]
         return faces
 
-    def bc_type(self, g):
+    def bc_type(self, g: pp.Grid):
         """
         We set Neumann values on all but a few boundary faces. Fracture faces also set to Dirichlet.
 
@@ -192,13 +192,13 @@ class ContactMechanicsISC(ContactMechanics):
 
         all_bf, *_ = self.domain_boundary_sides(g)
         faces = self.faces_to_fix(g)
-        bc = pp.BoundaryConditionVectorial(g, faces, ["dir"]*len(faces))
+        bc = pp.BoundaryConditionVectorial(g, faces, ["dir"] * len(faces))
         fracture_faces = g.tags["fracture_faces"]
         bc.is_neu[:, fracture_faces] = False
         bc.is_dir[:, fracture_faces] = True
         return bc
 
-    def bc_values(self, g):
+    def bc_values(self, g: pp.Grid):
         """ Mechanical stress values as ISC
 
         All faces are Neumann, except 3 faces fixed
@@ -233,7 +233,7 @@ class ContactMechanicsISC(ContactMechanics):
 
         return bc_values.ravel("F")
 
-    def _adjust_stress_for_depth(self, g, outward_normals):
+    def _adjust_stress_for_depth(self, g: pp.Grid, outward_normals):
         """ Compute a stress tensor purely accounting for depth.
 
         The true_stress_depth determines at what depth we consider
@@ -260,7 +260,7 @@ class ContactMechanicsISC(ContactMechanics):
         lithostatic_stress = stress_scaler.dot(np.multiply(outward_normals, rho_g_h))
         return lithostatic_stress
 
-    def source(self, g):
+    def source(self, g: pp.Grid):
         """ Gravity term.
 
         Gravity points downward, but we give the term
@@ -281,7 +281,7 @@ class ContactMechanicsISC(ContactMechanics):
 
         self.rock = GrimselGranodiorite()
 
-    def _set_friction_coefficient(self, g):
+    def _set_friction_coefficient(self, g: pp.Grid):
         """ The friction coefficient is uniform, and equal to 1.
 
         Assumes self.set_rock() is called
@@ -493,7 +493,6 @@ class ContactMechanicsISCWithGrid(ContactMechanicsISC):
     """
 
     def __init__(self, params, gb: pp.GridBucket):
-
         super().__init__(params)
 
         self.gb = gb
@@ -533,4 +532,3 @@ class GrimselGranodiorite(pp.UnitRock):
         """
         rho = self.DENSITY
         return rho * depth * pp.GRAVITY_ACCELERATION
-
