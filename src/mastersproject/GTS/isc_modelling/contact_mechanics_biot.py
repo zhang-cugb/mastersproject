@@ -898,10 +898,3 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         """
         return 480.0 * pp.METER - self.length_scale * coords[2]
 
-    def _is_nonlinear_problem(self):
-        """
-        OVERWRITTEN FROM PARENT:
-        This problem is non-linear, so return True.
-        """
-        return True
-
