@@ -219,7 +219,7 @@ class ContactMechanicsISC(ContactMechanics):
         flip_normal_to_outwards = np.where(g.cell_face_as_dense()[0, :] >= 0, 1, -1)
         outward_normals = bf_normals * flip_normal_to_outwards
         bf_stress = np.dot(self.stress, outward_normals[:, all_bf])
-        bc_values[:, all_bf] += bf_stress  # Mechanical stress
+        bc_values[:, all_bf] += bf_stress / self.scalar_scale  # Mechanical stress
 
         # --- gravitational forces ---
         lithostatic_bc = self._adjust_stress_for_depth(g, outward_normals)

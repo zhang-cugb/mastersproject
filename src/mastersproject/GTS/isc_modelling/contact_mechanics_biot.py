@@ -57,8 +57,8 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
                 source_scalar_borehole_shearzone : dict[str, str]
                     Which borehole and shear-zone intersection to do injection in.
                     Required keys: 'shearzone', 'borehole'
-                # length_scale, scalar_scale : float
-                #     Length scale and scalar variable scale.
+                length_scale, scalar_scale : float : Optional (Default: 100, pp.GIGA, respectively)
+                    Length scale and scalar variable scale.
         """
 
         logger.info(f"Initializing contact mechanics biot on ISC dataset")
@@ -67,8 +67,8 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         self.source_scalar_borehole_shearzone = params.pop('source_scalar_borehole_shearzone')
 
         # Scaling coefficients
-        self.scalar_scale = 1 * pp.GIGA
-        self.length_scale = 100
+        self.scalar_scale = params.pop('scalar_scale', 1 * pp.GIGA)
+        self.length_scale = params.pop('length_scale', 100 * pp.METER)
         params['scalar_scale'] = self.scalar_scale  # Temporary
         params['length_scale'] = self.length_scale  # Temporary
 
@@ -445,7 +445,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         """
         gb = self.gb
 
-        compressibility = self.fluid.COMPRESSIBILITY  # Units [1/Pa]
+        compressibility = self.fluid.COMPRESSIBILITY * self.scalar_scale  # Units [1/Pa]
         porosity = self.rock.POROSITY
         for g, d in gb:
             # specific volume
@@ -468,7 +468,6 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
                 {
                     "bc": bc,
                     "bc_values": bc_values,
-                    # TODO: Scale this quantity
                     "mass_weight": compressibility * porosity * specific_volume,
                     "biot_alpha": alpha,
                     "source": source_values,
