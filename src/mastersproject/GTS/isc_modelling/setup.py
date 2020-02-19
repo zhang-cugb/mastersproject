@@ -134,14 +134,7 @@ def run_biot_model(
 
     # Set bounding box
     if bounding_box is None:
-        bounding_box = {
-            "xmin": -6,
-            "xmax": 80,
-            "ymin": 55,
-            "ymax": 150,
-            "zmin": 0,
-            "zmax": 50,
-        }
+        bounding_box = {'xmin': -20, 'xmax': 80, 'ymin': 50, 'ymax': 150, 'zmin': -25, 'zmax': 75}
     params['bounding_box'] = bounding_box
     logger.info(f"Bounding box: \n {bounding_box}")
 
