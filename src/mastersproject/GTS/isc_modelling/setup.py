@@ -28,7 +28,7 @@ from refinement import refine_mesh
 
 # --- LOGGING UTIL ---
 from util.logging_util import timer, trace
-# logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def __setup_logging(path, log_fname="results.log"):
