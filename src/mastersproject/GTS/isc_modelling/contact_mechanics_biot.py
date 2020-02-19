@@ -130,8 +130,8 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
 
         # DIRICHLET
         bc_values[all_bf] = self.fluid.hydrostatic_pressure(depth) / self.scalar_scale
-        # return bc_values
-        return np.zeros(g.num_faces)
+        return bc_values
+        # return np.zeros(g.num_faces)
 
     def bc_type_scalar(self, g):
         """ Known boundary conditions (Dirichlet)
