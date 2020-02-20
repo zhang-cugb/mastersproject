@@ -82,7 +82,6 @@ def fracture_network(
             Export network to vtk.
         path : pathlib.Path or str
             Path/to/01BasicInputData/
-            Alternatively, provide 'windows' or 'linux' default paths for each system.
         network_kwargs : kwargs
             domain : dict
                 keys 'xmin', 'xmax', etc. of domain boundaries.
@@ -132,7 +131,7 @@ def fracture_network(
     name = network_kwargs.get("name", None)
     if export:
         if name is None:
-            name = "RIGHT_fracture_network.vtu"
+            name = "fracture_network.vtu"
         if name[-4:] != ".vtu":
             name = name + ".vtu"
         network.to_vtk(name)
