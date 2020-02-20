@@ -86,6 +86,9 @@ def fracture_network(
         network_kwargs : kwargs
             domain : dict
                 keys 'xmin', 'xmax', etc. of domain boundaries.
+            length_scale : float
+                Domain scaling.
+                Divide all nodes of shear zones by 'length_scale'.
 
     """
     if path is None:
@@ -103,6 +106,13 @@ def fracture_network(
         fractures = None
     else:
         convex = convex_plane(shearzone_names, coord_system="gts", path=data_path)
+
+        # Domain scaling
+        length_scale = network_kwargs.get('length_scale', 1)
+        convex.loc[:, ('x_proj', 'y_proj', 'z_proj')] /= length_scale
+
+        # Create each fracture
+        # Saved to list of same order as the input list shearzone_names (ensures correct naming of shearzones later on)
         fractures = [
             pp.Fracture(
                 convex.loc[convex.shearzone == sz, ("x_proj", "y_proj", "z_proj")]
