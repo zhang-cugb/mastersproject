@@ -93,6 +93,7 @@ def run_biot_model(
         shearzone_names=shearzone_names,
         length_scale=length_scale,
         scalar_scale=scalar_scale,
+        source_scalar_borehole_shearzone=source_scalar_borehole_shearzone,
     )
 
     # -------------------------
