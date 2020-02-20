@@ -48,7 +48,7 @@ class ContactMechanicsISC(ContactMechanics):
                     Arguments for meshing of domain.
                     Required keys: 'mesh_size_frac', 'mesh_size_min, 'mesh_size_bound'
                 bounding_box : dict[str, int]
-                    Bounding box of domain
+                    Bounding box of domain. ** Unscaled **
                     Required keys: 'xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax'.
                 shearzone_names : List[str]
                     Which shear-zones to include in simulation
@@ -64,10 +64,6 @@ class ContactMechanicsISC(ContactMechanics):
         logger.info(f"Initializing contact mechanics on ISC dataset")
         # Root name of solution files
         self.file_name = 'main_run'
-
-        # Scaling coefficients
-        self.scalar_scale = params.pop('scalar_scale')
-        self.length_scale = params.pop('length_scale')
 
         # --- FRACTURES ---
         self.shearzone_names = params.pop('shearzone_names')
@@ -91,6 +87,11 @@ class ContactMechanicsISC(ContactMechanics):
 
         # params should have 'folder_name' and 'linear_solver' as keys
         super().__init__(params=params)
+
+        # Scaling coefficients (set after __init__ call because ContactMechanicsISC overwrites the values.
+        self.scalar_scale = params.pop('scalar_scale')
+        self.length_scale = params.pop('length_scale')
+        print(f"length scale: {self.length_scale}. scalar_scale={self.scalar_scale}")
 
     def create_grid(self, overwrite_grid: bool = False):
         """ Create a GridBucket of a 3D domain with fractures
@@ -122,20 +123,27 @@ class ContactMechanicsISC(ContactMechanics):
 
         """
         if (self.gb is None) or overwrite_grid:
+
+            # Scale mesh args by length_scale:
+            self.mesh_args = {k: v / self.length_scale for k, v in self.mesh_args.items()}
+            # Scale bounding box by length_scale:
+            self.box = {k: v / self.length_scale for k, v in self.box.items()}
+
             network = gts.fracture_network(
                 shearzone_names=self.shearzone_names,
                 export=True,
                 domain=self.box,
+                length_scale=self.length_scale
             )
             path = f"{self.viz_folder_name}/gmsh_frac_file"
             self.gb = network.mesh(mesh_args=self.mesh_args, file_name=path)
 
             # --- Scale the grid ---
             # self.gb_export = self.gb.copy()  #TODO: Do deep copy of grid bucket or generate separate gb from .msh file
-            for g, _ in self.gb:
-                g.nodes = g.nodes / self.length_scale
-            self.gb.compute_geometry()  # TODO: Inefficient method. Calls g.compute_geometry() v. many times.
-            self.box = self.gb.bounding_box(as_dict=True)
+            # for g, _ in self.gb:
+            #     g.nodes = g.nodes / self.length_scale
+            # self.gb.compute_geometry()  # TODO: Inefficient method. Calls g.compute_geometry() v. many times.
+            # self.box = self.gb.bounding_box(as_dict=True)
 
             pp.contact_conditions.set_projections(self.gb)
             self.Nd = self.gb.dim_max()
