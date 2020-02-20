@@ -33,7 +33,7 @@ def test_biot_parameter_scaling(**kw):
     """ Test scaling of parameters in Biot
     """
     _this_file = Path(os.path.abspath(__file__)).parent
-    _results_path = _this_file / "results"
+    _results_path = _this_file / "results/test_biot_parameter_scaling/default"
     _results_path.mkdir(parents=True, exist_ok=True)  # Create path if not exists
     __setup_logging(_results_path)
     logger.info(f"Path to results: {_results_path}")
@@ -46,7 +46,7 @@ def test_biot_parameter_scaling(**kw):
             {'xmin': -20, 'xmax': 80, 'ymin': 50, 'ymax': 150, 'zmin': -25, 'zmax': 75},
         'shearzone_names':
             ["S1_1", "S1_2", "S1_3", "S3_1", "S3_2"],
-        'viz_folder_name':
+        'folder_name':
             _results_path,
         'solver':
             'direct',
@@ -201,5 +201,74 @@ def test_biot_parameter_scaling(**kw):
     return setup, mech, flow, scaled_mech, scaled_flow
 
 
+def test_biot_condition_number(**kw):
+    """ Test scaling of parameters in Biot
+    """
+    _this_file = Path(os.path.abspath(__file__)).parent
+    _results_path = _this_file / "results/test_biot_condition_number/default"
+    _results_path.mkdir(parents=True, exist_ok=True)  # Create path if not exists
+    __setup_logging(_results_path)
+    # path = str(_results_path)
+    # # GTS logger
+    # gts_logger = logging.getLogger('GTS')
+    # gts_logger.setLevel(logging.INFO)
+    #
+    # # PorePy logger
+    # pp_logger = logging.getLogger('porepy')
+    # pp_logger.setLevel(logging.DEBUG)
+    #
+    # # Add handler for logging debug messages to file.
+    # fh = logging.FileHandler(path + "/" + "results.log")
+    # fh.setLevel(logging.DEBUG)
+    # fh.setFormatter(logging.Formatter(logging.BASIC_FORMAT))
+    #
+    # gts_logger.addHandler(fh)
+    # pp_logger.addHandler(fh)
 
+    logger.info(f"Path to results: {_results_path}")
+
+    # --- DOMAIN ARGUMENTS ---
+    params = {
+        'mesh_args':
+            {'mesh_size_frac': 10, 'mesh_size_min': .1*10, 'mesh_size_bound': 6*10},
+        'bounding_box':
+            {'xmin': -20, 'xmax': 80, 'ymin': 50, 'ymax': 150, 'zmin': -25, 'zmax': 75},
+        'shearzone_names':
+            ["S1_1", "S1_2", "S1_3", "S3_1", "S3_2"],
+        'folder_name':
+            _results_path,
+        'solver':
+            'direct',
+        'stress':
+            gts.isc_modelling.stress_tensor(),
+        'source_scalar_borehole_shearzone':
+            {'borehole': 'INJ1', 'shearzone': 'S1_1'},
+        'length_scale':
+            kw.get('ls', 100),
+        'scalar_scale':
+            kw.get('ss', 1 * pp.GIGA),
+    }
+    logger.info(f"input parameters: \n {params}")
+
+    setup = gts.ContactMechanicsBiotISC(params)
+
+    setup.create_grid(overwrite_grid=True)
+    ss = setup.scalar_scale
+    ls = setup.length_scale
+    print(f'ss={ss}')
+    print(f'ls={ls}')
+
+    # Recompute parameters
+    setup.prepare_simulation()
+
+    # Mimic NewtonSolver:
+    setup.before_newton_iteration()
+
+    # Check size of entries in matrix A.
+    A, b = setup.assembler.assemble_matrix_rhs()
+    logger.info("------------------------------------------")
+    logger.info(f"Max element in A {np.max(np.abs(A)):.2e}")
+    logger.info(f"Max {np.max(np.sum(np.abs(A), axis=1)):.2e} and min {np.min(np.sum(np.abs(A), axis=1)):.2e} A sum.")
+
+    return setup
 
