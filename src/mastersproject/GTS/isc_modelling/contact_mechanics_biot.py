@@ -794,7 +794,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
     def check_convergence(self, solution, prev_solution, init_solution, nl_params):
         g_max = super()._nd_grid()
 
-        if not self._is_nonlinear_problem():
+        if not super()._is_nonlinear_problem():
             # At least for the default direct solver, scipy.sparse.linalg.spsolve, no
             # error (but a warning) is raised for singular matrices, but a nan solution
             # is returned. We check for this.
@@ -819,18 +819,18 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
 
         # Pick out the solution from current, previous iterates, as well as the
         # initial guess.
-        u_mech_now = solution[mech_dof]
-        u_mech_prev = prev_solution[mech_dof]
-        u_mech_init = init_solution[mech_dof]
+        u_mech_now = solution[mech_dof] * self.length_scale
+        u_mech_prev = prev_solution[mech_dof] * self.length_scale
+        u_mech_init = init_solution[mech_dof] * self.length_scale
 
-        contact_now = solution[contact_dof]
-        contact_prev = prev_solution[contact_dof]
-        contact_init = init_solution[contact_dof]
+        contact_now = solution[contact_dof] * self.scalar_scale * self.length_scale ** 2
+        contact_prev = prev_solution[contact_dof] * self.scalar_scale * self.length_scale ** 2
+        contact_init = init_solution[contact_dof] * self.scalar_scale * self.length_scale ** 2
 
         # Pressure solution
-        p_scalar_now = solution[scalar_dof]
-        p_scalar_prev = prev_solution[scalar_dof]
-        p_scalar_init = init_solution[scalar_dof]
+        p_scalar_now = solution[scalar_dof] * self.scalar_scale
+        p_scalar_prev = prev_solution[scalar_dof] * self.scalar_scale
+        p_scalar_init = init_solution[scalar_dof] * self.scalar_scale
 
         # Calculate errors
         difference_in_iterates_mech = np.sum((u_mech_now - u_mech_prev) ** 2)
