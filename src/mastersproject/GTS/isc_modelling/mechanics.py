@@ -147,6 +147,8 @@ class ContactMechanicsISC(ContactMechanics):
             # Set fracture grid names:
             self.gb.add_node_props(keys="name")  # Add 'name' as node prop to all grids.
             fracture_grids = self.gb.get_grids(lambda g: g.dim == 2)
+            assert fracture_grids.size == len(self.shearzone_names), "We expect all shearzones to be meshed"
+
             for i, sz_name in enumerate(self.shearzone_names):
                 self.gb.set_node_prop(fracture_grids[i], key="name", val=sz_name)
                 # Note: Use self.gb.node_props(g, 'name') to get value.
