@@ -27,6 +27,10 @@ logger = logging.getLogger(__name__)
 
 
 def test_create_grid():
+    """ Create a standard grid.
+
+    Returns the ContactMechanicsBiot class with an overwritten create_grid method.
+    """
     _this_file = Path(os.path.abspath(__file__)).parent
     _results_path = _this_file / "results"
     _results_path.mkdir(parents=True, exist_ok=True)  # Create path if not exists
