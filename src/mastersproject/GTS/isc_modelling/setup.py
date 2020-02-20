@@ -100,8 +100,8 @@ def run_biot_model(
     # --- SOLVE THE PROBLEM ---
     # -------------------------
     default_options = {  # Parameters for Newton solver.
-        "max_iterations": 10,
-        "nl_convergence_tol": 0.98,  # WARNING: VERY HIGH CONVERGENCE TOL !!!!!!!!!!!!!!!!!!!!!!!!!!!
+        "max_iterations": 20,
+        "nl_convergence_tol": 1e-10,
         "nl_divergence_tol": 1e5,
     }
     newton_options = default_options
