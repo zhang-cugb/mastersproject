@@ -834,17 +834,29 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         p_scalar_init = init_solution[scalar_dof] * self.scalar_scale
 
         # Calculate errors
+
+        # Displacement error
         difference_in_iterates_mech = np.sum((u_mech_now - u_mech_prev) ** 2)
         difference_from_init_mech = np.sum((u_mech_now - u_mech_init) ** 2)
 
+        logger.info(f"diff iter u = {difference_in_iterates_mech:.6e}")
+        logger.info(f"diff init u = {difference_from_init_mech:.6e}")
+
+        # Contact traction error
+        # TODO: Unsure about units of contact traction
         contact_norm = np.sum(contact_now ** 2)
         difference_in_iterates_contact = np.sum((contact_now - contact_prev) ** 2)
         difference_from_init_contact = np.sum((contact_now - contact_init) ** 2)
 
-        # Scalar errors
+        logger.info(f"diff iter contact = {difference_in_iterates_contact:.6e}")
+        logger.info(f"diff init contact = {difference_from_init_contact:.6e}")
+
+        # Pressure scalar error
         scalar_norm = np.sum(p_scalar_now ** 2)
         difference_in_iterates_scalar = np.sum((p_scalar_now - p_scalar_prev) ** 2)
         difference_from_init_scalar = np.sum((p_scalar_now - p_scalar_init) ** 2)
+        logger.info(f"diff iter scalar = {difference_in_iterates_scalar:.6e}")
+        logger.info(f"diff init scalar = {difference_from_init_scalar:.6e}")
 
         tol_convergence = nl_params["nl_convergence_tol"]
         # Not sure how to use the divergence criterion
@@ -853,10 +865,16 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         converged = False
         diverged = False
 
+        # Converge in displacement and pressure on 3D grid
+        converged_u = False
+        converged_p = False
+
         # Check absolute convergence criterion
         if difference_in_iterates_mech < tol_convergence:
-            converged = True
+            # converged = True
+            converged_u = True
             error_mech = difference_in_iterates_mech
+            logger.info(f"u converged absolutely.")
 
         else:
             # Check relative convergence criterion
@@ -864,13 +882,16 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
                 difference_in_iterates_mech
                 < tol_convergence * difference_from_init_mech
             ):
-                converged = True
+                # converged = True
+                converged_u = True
+                logger.info(f"u converged relatively")
             error_mech = difference_in_iterates_mech / difference_from_init_mech
 
         # The if is intended to avoid division through zero
-        if contact_norm < 1e-10 and difference_in_iterates_contact < 1e-10:
+        if difference_in_iterates_contact < 1e-10:
             # converged = True
             error_contact = difference_in_iterates_contact
+            logger.info(f"contact variable converged absolutely")
         else:
             error_contact = (
                 difference_in_iterates_contact / difference_from_init_contact
@@ -878,17 +899,24 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
 
         # -- Scalar solution --
         # The if is intended to avoid division through zero
-        if scalar_norm < 1e-10 and difference_in_iterates_scalar < 1e-10:
-            # converged = True
+        if difference_in_iterates_scalar < tol_convergence:
+            converged_p = True
             error_scalar = difference_in_iterates_scalar
+            logger.info(f"pressure converged absolutely")
         else:
-            error_scalar = (
-                    difference_in_iterates_scalar / difference_from_init_scalar
-            )
+            # Relative convergence criterion:
+            if difference_in_iterates_scalar < tol_convergence * difference_from_init_scalar:
+                # converged = True
+                converged_p = True
+                logger.info(f"pressure converged relatively")
 
-        logger.info("Error in contact force is {}".format(error_contact))
-        logger.info("Error in matrix displacement is {}".format(error_mech))
-        logger.info(f"Error in pressure is {error_scalar}.")
+            error_scalar = (difference_in_iterates_scalar / difference_from_init_scalar)
+
+        logger.info(f"Error in contact force is {error_contact:.6e}")
+        logger.info(f"Error in matrix displacement is {error_mech:.6e}")
+        logger.info(f"Error in pressure is {error_scalar:.6e}.")
+
+        converged = converged_p and converged_u
 
         return error_mech, converged, diverged
 
