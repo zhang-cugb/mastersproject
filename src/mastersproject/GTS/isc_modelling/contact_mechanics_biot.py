@@ -486,7 +486,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         self.export_times = []
 
         self.u_exp = 'u_exp'
-        self.p_exp = 'p'
+        self.p_exp = 'p_exp'
         self.traction_exp = 'traction_exp'
         self.normal_frac_u = 'normal_frac_u'
         self.tangential_frac_u = 'tangential_frac_u'
@@ -506,19 +506,27 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
 
         Inspired by Keilegavlen 2019 (code)
         """
+        # TODO: Check that everything is unscaled correctly
 
         self.save_frac_jump_data()  # Save fracture jump data to pp.STATE
         gb = self.gb
         Nd = self.Nd
+        ss = self.scalar_scale
+        ls = self.length_scale
 
         for g, d in gb:
+            # Export pressure variable
+            if self.scalar_variable in d[pp.STATE]:
+                d[pp.STATE][self.p_exp] = d[pp.STATE][self.scalar_variable].copy() * ss
+            else:
+                d[pp.STATE][self.p_exp] = np.zeros((Nd, g.num_cells))
 
             if g.dim != 2:  # We only define tangential jumps in 2D fractures
                 d[pp.STATE][self.normal_frac_u] = np.zeros(g.num_cells)
                 d[pp.STATE][self.tangential_frac_u] = np.zeros(g.num_cells)
 
             if g.dim == Nd:  # On matrix
-                u = d[pp.STATE][self.displacement_variable].reshape((Nd, -1), order='F').copy() * self.length_scale
+                u = d[pp.STATE][self.displacement_variable].reshape((Nd, -1), order='F').copy() * ls
 
                 if g.dim != 3:  # Only called if solving a 2D problem
                     u = np.vstack(u, np.zeros(u.shape[1]))
@@ -581,6 +589,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
             d[pp.STATE][self.normal_frac_u] = normal_jump
             d[pp.STATE][self.tangential_frac_u] = tangential_jump
 
+            # TODO: "Un-scale" these quantities
             # Ad-hoc average normal and tangential jump "estimates"
             # TODO: Find a proper way to express the "total" displacement of a fracture
             avg_tangential_jump = np.sum(tangential_jump * g.cell_volumes) / np.sum(g.cell_volumes)
