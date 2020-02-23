@@ -154,21 +154,30 @@ class ContactMechanicsISC(ContactMechanics):
             #   This may be untrue if fractures are (completely) split in the process.
             # Set fracture grid names:
             self.gb.add_node_props(keys="name")  # Add 'name' as node prop to all grids.
-            fracture_grids = self.gb.get_grids(lambda g: g.dim == 2)
-            assert fracture_grids.size == len(self.shearzone_names), "We expect all shearzones to be meshed"
+            fracture_grids = self.gb.get_grids(lambda g: g.dim == self.Nd - 1)
+            assert fracture_grids.size == self.n_frac, "We expect all shear zones to be meshed"
 
-            for i, sz_name in enumerate(self.shearzone_names):
-                self.gb.set_node_prop(fracture_grids[i], key="name", val=sz_name)
-                # Note: Use self.gb.node_props(g, 'name') to get value.
+            if self.n_frac > 0:
+                for i, sz_name in enumerate(self.shearzone_names):
+                    self.gb.set_node_prop(fracture_grids[i], key="name", val=sz_name)
+                    # Note: Use self.gb.node_props(g, 'name') to get value.
         else:
-            assert (self.Nd is not None), \
-                "Attribute Nd must be set in an existing grid."
+            assert (self.Nd is not None) and (self.n_frac is not None), \
+                "Attributes Nd and n_frac must be set in an existing grid."
 
-            # We require that 2D grids have a name.
-            g = self.gb.get_grids(lambda g: g.dim == 2)
-            for i, sz in enumerate(self.shearzone_names):
-                assert (self.gb.node_props(g[i], "name") is not None), \
-                    "All 2D grids must have a name."
+            if self.n_frac > 0:
+                # We require that fracture grids have a name.
+                g = self.gb.get_grids(lambda g: g.dim == self.Nd - 1)
+                for i, sz in enumerate(self.shearzone_names):
+                    assert (self.gb.node_props(g[i], "name") is not None), \
+                        "All 2D grids must have a name."
+
+    def set_grid(self, gb: pp.GridBucket):
+        """ Set a new grid
+        """
+        self.gb = gb
+        self.Nd = gb.dim_max()
+        self.n_frac = gb.get_grids(lambda _g: _g.dim == self.Nd - 1).size
 
     def faces_to_fix(self, g: pp.Grid):
         """ Fix some boundary faces to dirichlet to ensure unique solution to problem.
@@ -426,44 +435,46 @@ class ContactMechanicsISC(ContactMechanics):
         """ Save normal and tangential jumps to a class attribute
         Inspired by Keilegavlen 2019 (code)
         """
-        gb = self.gb
-        Nd = self.Nd
-        n = self.n_frac
+        if self.n_frac > 0:
+            gb = self.gb
+            Nd = self.Nd
+            n = self.n_frac
 
-        tangential_u_jumps = np.zeros((1, n))
-        normal_u_jumps = np.zeros((1, n))
+            tangential_u_jumps = np.zeros((1, n))
+            normal_u_jumps = np.zeros((1, n))
 
-        for frac_num, frac_name in enumerate(self.shearzone_names):
-            g_lst = gb.get_grids(lambda _g: gb.node_props(_g)['name'] == frac_name)
-            assert len(g_lst) == 1  # Currently assume each fracture is uniquely named.
+            for frac_num, frac_name in enumerate(self.shearzone_names):
+                g_lst = gb.get_grids(lambda _g: gb.node_props(_g)['name'] == frac_name)
+                assert len(g_lst) == 1  # Currently assume each fracture is uniquely named.
 
-            g = g_lst[0]
-            g_h = gb.node_neighbors(g, only_higher=True)[0]  # Get higher-dimensional neighbor
-            assert g_h.dim == Nd  # We only operate on fractures of dim Nd-1.
+                g = g_lst[0]
+                g_h = gb.node_neighbors(g, only_higher=True)[0]  # Get higher-dimensional neighbor
+                assert g_h.dim == Nd  # We only operate on fractures of dim Nd-1.
 
-            data_edge = gb.edge_props((g, g_h))
-            u_mortar_local = self.reconstruct_local_displacement_jump(
-                data_edge=data_edge, from_iterate=True).copy() * self.length_scale
+                data_edge = gb.edge_props((g, g_h))
+                u_mortar_local = self.reconstruct_local_displacement_jump(
+                    data_edge=data_edge, from_iterate=True).copy() * self.length_scale
 
-            # Jump distances in each cell
-            tangential_jump = np.linalg.norm(u_mortar_local[:-1, :], axis=0)  # * self.length_scale inside norm.
-            normal_jump = u_mortar_local[-1, :]  # * self.length_scale
+                # Jump distances in each cell
+                tangential_jump = np.linalg.norm(u_mortar_local[:-1, :], axis=0)  # * self.length_scale inside norm.
+                normal_jump = np.abs(u_mortar_local[-1, :])  # * self.length_scale
 
-            # Save jumps to state
-            d = gb.node_props(g)
-            d[pp.STATE][self.normal_frac_u] = normal_jump
-            d[pp.STATE][self.tangential_frac_u] = tangential_jump
+                # Save jumps to state
+                d = gb.node_props(g)
+                d[pp.STATE][self.normal_frac_u] = normal_jump
+                d[pp.STATE][self.tangential_frac_u] = tangential_jump
 
-            # Ad-hoc average normal and tangential jump "estimates"
-            # TODO: Find a proper way to express the "total" displacement of a fracture
-            avg_tangential_jump = np.sum(tangential_jump * g.cell_volumes) / np.sum(g.cell_volumes)
-            avg_normal_jump = np.sum(normal_jump * g.cell_volumes) / np.sum(g.cell_volumes)
+                # TODO: "Un-scale" these quantities
+                # Ad-hoc average normal and tangential jump "estimates"
+                # TODO: Find a proper way to express the "total" displacement of a fracture
+                avg_tangential_jump = np.sum(tangential_jump * g.cell_volumes) / np.sum(g.cell_volumes)
+                avg_normal_jump = np.sum(normal_jump * g.cell_volumes) / np.sum(g.cell_volumes)
 
-            tangential_u_jumps[0, frac_num] = avg_tangential_jump
-            normal_u_jumps[0, frac_num] = avg_normal_jump
+                tangential_u_jumps[0, frac_num] = avg_tangential_jump
+                normal_u_jumps[0, frac_num] = avg_normal_jump
 
-        self.u_jumps_tangential = np.concatenate((self.u_jumps_tangential, tangential_u_jumps))
-        self.u_jumps_normal = np.concatenate((self.u_jumps_normal, normal_u_jumps))
+            self.u_jumps_tangential = np.concatenate((self.u_jumps_tangential, tangential_u_jumps))
+            self.u_jumps_normal = np.concatenate((self.u_jumps_normal, normal_u_jumps))
 
     def after_newton_iteration(self, solution_vector):
         """
