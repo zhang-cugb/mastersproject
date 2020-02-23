@@ -37,17 +37,33 @@ def __setup_logging(path, log_fname="results.log"):
     # GTS logger
     gts_logger = logging.getLogger('GTS')
     gts_logger.setLevel(logging.INFO)
+    if gts_logger.handlers:
+        gts_logger.handlers = []
 
     # PorePy logger
     pp_logger = logging.getLogger('porepy')
     pp_logger.setLevel(logging.DEBUG)
+    if pp_logger.handlers:
+        pp_logger.handlers = []
+
+    common_format = logging.Formatter(logging.BASIC_FORMAT)
 
     # Add handler for logging debug messages to file.
-    fh = logging.FileHandler(path + "/" + log_fname)
+    fh = logging.FileHandler(path + "/" + log_fname, 'w+')
     fh.setLevel(logging.DEBUG)
-    fh.setFormatter(logging.Formatter(logging.BASIC_FORMAT))
+    fh.setFormatter(common_format)
 
     gts_logger.addHandler(fh)
     pp_logger.addHandler(fh)
+
+    # Add handler for logging info messages to console
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
+    ch.setFormatter(common_format)
+
+    gts_logger.addHandler(ch)
+    pp_logger.addHandler(ch)
+
+
 
 
