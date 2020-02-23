@@ -250,10 +250,11 @@ def _abstract_model_setup(
     logger.info(f"Bounding box: \n {bounding_box}")
 
     # Set which shear-zones to include in simulation
-    if shearzone_names is None:
-        shearzone_names = ["S1_1", "S1_2", "S1_3", "S3_1", "S3_2"]
     params['shearzone_names'] = shearzone_names
-    logger.info(f"Shear zones in simulation: \n {shearzone_names}")
+    if shearzone_names:
+        logger.info(f"Shear zones in simulation: \n {shearzone_names}")
+    else:
+        logger.info("No shear zones included in simulation.")
 
     # Set length scale and scalar scale
     if length_scale is not None:
