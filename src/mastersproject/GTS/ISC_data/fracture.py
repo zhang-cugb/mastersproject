@@ -88,6 +88,8 @@ def fracture_network(
             length_scale : float
                 Domain scaling.
                 Divide all nodes of shear zones by 'length_scale'.
+            network_path : str
+                path/to/fracture_network.vtu
 
     """
     if path is None:

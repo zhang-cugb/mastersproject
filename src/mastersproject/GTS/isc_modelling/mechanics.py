@@ -134,7 +134,8 @@ class ContactMechanicsISC(ContactMechanics):
                 shearzone_names=self.shearzone_names,
                 export_vtk=True,
                 domain=self.box,
-                length_scale=self.length_scale
+                length_scale=self.length_scale,
+                network_path=f"{self.viz_folder_name}/fracture_network.vtu",
             )
             self._network = network  # Usually only used to re-create gb from .msh-file.
             path = f"{self.viz_folder_name}/gmsh_frac_file"

@@ -327,6 +327,7 @@ def create_isc_domain(
         shearzone_names=shearzone_names,
         export_vtk=True,
         domain=bounding_box,
+        network_path=f"{viz_folder_name}/fracture_network.vtu"
     )
 
     gmsh_file_name = str(viz_folder_name / "gmsh_frac_file")
