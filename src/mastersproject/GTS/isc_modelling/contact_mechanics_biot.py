@@ -444,7 +444,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         """
         # TODO: Check that everything is unscaled correctly
 
-        self.save_frac_jump_data()  # Save fracture jump data to pp.STATE
+        super().save_frac_jump_data()  # Save fracture jump data to pp.STATE
         gb = self.gb
         Nd = self.Nd
         ss = self.scalar_scale
@@ -492,50 +492,6 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
                     d[pp.STATE][self.traction_exp] = np.zeros((Nd, g.num_cells))
         self.viz.write_vtk(data=self.export_fields, time_step=self.time)  # Write visualization
         self.export_times.append(self.time)
-
-    def save_frac_jump_data(self):
-        """ Save normal and tangential jumps to a class attribute
-        Inspired by Keilegavlen 2019 (code)
-        """
-        gb = self.gb
-        Nd = self.Nd
-        n = self.n_frac
-
-        tangential_u_jumps = np.zeros((1, n))
-        normal_u_jumps = np.zeros((1, n))
-
-        for frac_num, frac_name in enumerate(self.shearzone_names):
-            g_lst = gb.get_grids(lambda _g: gb.node_props(_g)['name'] == frac_name)
-            assert len(g_lst) == 1  # Currently assume each fracture is uniquely named.
-
-            g = g_lst[0]
-            g_h = gb.node_neighbors(g, only_higher=True)[0]  # Get higher-dimensional neighbor
-            assert g_h.dim == Nd  # We only operate on fractures of dim Nd-1.
-
-            data_edge = gb.edge_props((g, g_h))
-            u_mortar_local = self.reconstruct_local_displacement_jump(
-                data_edge=data_edge, from_iterate=True).copy() * self.length_scale
-
-            # Jump distances in each cell
-            tangential_jump = np.linalg.norm(u_mortar_local[:-1, :], axis=0)  # * self.length_scale inside norm.
-            normal_jump = np.abs(u_mortar_local[-1, :])  # * self.length_scale
-
-            # Save jumps to state
-            d = gb.node_props(g)
-            d[pp.STATE][self.normal_frac_u] = normal_jump
-            d[pp.STATE][self.tangential_frac_u] = tangential_jump
-
-            # TODO: "Un-scale" these quantities
-            # Ad-hoc average normal and tangential jump "estimates"
-            # TODO: Find a proper way to express the "total" displacement of a fracture
-            avg_tangential_jump = np.sum(tangential_jump * g.cell_volumes) / np.sum(g.cell_volumes)
-            avg_normal_jump = np.sum(normal_jump * g.cell_volumes) / np.sum(g.cell_volumes)
-
-            tangential_u_jumps[0, frac_num] = avg_tangential_jump
-            normal_u_jumps[0, frac_num] = avg_normal_jump
-
-        self.u_jumps_tangential = np.concatenate((self.u_jumps_tangential, tangential_u_jumps))
-        self.u_jumps_normal = np.concatenate((self.u_jumps_normal, normal_u_jumps))
 
     def export_pvd(self):
         """ Implementation of export pvd"""
