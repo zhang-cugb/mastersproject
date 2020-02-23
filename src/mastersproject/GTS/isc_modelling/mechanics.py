@@ -378,11 +378,11 @@ class ContactMechanicsISC(ContactMechanics):
         self.create_grid()
         self.Nd = self.gb.dim_max()
         self.set_parameters()
-        self.assign_variables()
-        self.assign_discretizations()
-        self.initial_condition()
-        self.discretize()
-        self.initialize_linear_solver()
+        super().assign_variables()
+        super().assign_discretizations()
+        super().initial_condition()
+        super().discretize()
+        super().initialize_linear_solver()
 
         self.set_viz()
 
