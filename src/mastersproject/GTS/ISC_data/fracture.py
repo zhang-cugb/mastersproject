@@ -70,7 +70,7 @@ def convex_plane(shearzone_names, coord_system="gts", path=None) -> pd.DataFrame
 
 
 def fracture_network(
-    shearzone_names, export: bool = False, path=None, **network_kwargs
+        shearzone_names, export_vtk: bool = False, path=None, **network_kwargs
 ) -> pp.FractureNetwork3d:
     """ Make a fracture network from a selection of shear-zones.
 
@@ -78,7 +78,7 @@ def fracture_network(
         shearzone_names : str or list
             Shearzones to make fracture network of.
             if 'None': Mesh only the 3d domain.
-        export : bool
+        export_vtk : bool
             Export network to vtk.
         path : pathlib.Path or str
             Path/to/01BasicInputData/
@@ -128,13 +128,13 @@ def fracture_network(
     if domain is not None:
         network.impose_external_boundary(domain=domain)
 
-    name = network_kwargs.get("name", None)
-    if export:
-        if name is None:
-            name = "fracture_network.vtu"
-        if name[-4:] != ".vtu":
-            name = name + ".vtu"
-        network.to_vtk(name)
+    network_path = network_kwargs.get("network_path", None)
+    if export_vtk:
+        if network_path is None:
+            network_path = "fracture_network.vtu"
+        if network_path[-4:] != ".vtu":
+            network_path = network_path + ".vtu"
+        network.to_vtk(network_path)
         logger.info("Saving vtk file of fracture network in 3D.")
 
     return network
