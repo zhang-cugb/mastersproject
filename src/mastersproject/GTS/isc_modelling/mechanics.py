@@ -81,6 +81,7 @@ class ContactMechanicsISC(ContactMechanics):
         self.box = params.pop('bounding_box')
         self.gb = None
         self.Nd = None
+        self._network = None
 
         # --- GTS-ISC DATA ---
         self.isc = gts.ISCData()
@@ -131,10 +132,11 @@ class ContactMechanicsISC(ContactMechanics):
 
             network = gts.fracture_network(
                 shearzone_names=self.shearzone_names,
-                export=True,
+                export_vtk=True,
                 domain=self.box,
                 length_scale=self.length_scale
             )
+            self._network = network  # Usually only used to re-create gb from .msh-file.
             path = f"{self.viz_folder_name}/gmsh_frac_file"
             self.gb = network.mesh(mesh_args=self.mesh_args, file_name=path)
 
