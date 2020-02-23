@@ -176,6 +176,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
 
         pts = result.to_numpy().T / self.length_scale
         assert pts.shape[1] == 1, "Should only be one intersection"
+        tagged = False
 
         for g, d in self.gb:
             tags = np.zeros(g.num_cells)
@@ -193,9 +194,13 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
 
                 # Tag the injection cell
                 tags[ids] = 1
+                tagged = True
 
             g.tags["well_cells"] = tags
             pp.set_state(d, {"well": tags.copy()})
+
+        if not tagged:
+            logger.warning("No injection cell was tagged.")
 
     def source_scalar(self, g: pp.Grid):
         """ Well-bore source
