@@ -1,35 +1,48 @@
 # --- LOGGING UTIL ---
 import logging
-from decorator import decorator
 import time
+import functools
+
+default_logger = logging.getLogger("GTS.OVERWRITE_ME")
 
 
-@decorator
-def warn_slow(func, timelimit=60, *args, **kw):
-    t0 = time.time()
-    result = func(*args, **kw)
-    dt = time.time() - t0
-    if dt > timelimit:
-        logging.warning('%s took %d seconds', func.__name__, dt)
-    else:
-        logging.info('%s took %d seconds', func.__name__, dt)
-    return result
+def timer(logger=default_logger):
+    """ Credits: https://realpython.com/primer-on-python-decorators/#decorators-with-arguments"""
+    def decorator_timer(func):
+        """Print the runtime of the decorated function"""
+        @functools.wraps(func)
+        def wrapper_timer(*args, **kwargs):
+            logger.info(f"Calling {func.__name__}")
+            start_time = time.perf_counter()
+            value = func(*args, **kwargs)
+            end_time = time.perf_counter()
+            run_time = end_time - start_time
+            logger.info(f"Finished {func.__name__!r} in {run_time:.4f} secs")
+            return value
+        return wrapper_timer
+    return decorator_timer
 
 
-@decorator
-def timer(func, *args, **kw):
-    t0 = time.time()
-    result = func(*args, **kw)
-    dt = time.time() - t0
-    logging.info(f'{func.__name__} took {dt} seconds')
-    return result
-
-
-@decorator
-def trace(f, *args, **kw):
-    kwstr = ', '.join('%r: %r' % (k, kw[k]) for k in sorted(kw))
-    logging.debug(f"Calling {f.__name__} with args {args}, {{{kwstr}}}")
-    return f(*args, **kw)
+def trace(logger=default_logger, timeit=True):
+    """ Credits: https://realpython.com/primer-on-python-decorators/#decorators-with-arguments"""
+    def decorator_trace(func):
+        """Print the function signature and return value"""
+        @functools.wraps(func)
+        def wrapper_debug(*args, **kwargs):
+            args_repr = [repr(a) for a in args]
+            kwargs_repr = [f"{k}={v!r}" for k, v in kwargs.items()]
+            signature = ", ".join(args_repr + kwargs_repr)
+            logger.info(f"Calling {func.__name__}({signature})")
+            start_time = time.perf_counter()
+            value = func(*args, **kwargs)
+            end_time = time.perf_counter()
+            run_time = end_time - start_time
+            if timeit:
+                logger.info(f"Finished {func.__name__!r} in {run_time:.4f} secs")
+            logger.info(f"{func.__name__!r} returned {value!r}")
+            return value
+        return wrapper_debug
+    return decorator_trace
 
 
 def __setup_logging(path, log_fname="results.log"):

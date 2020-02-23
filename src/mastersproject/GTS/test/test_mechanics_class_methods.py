@@ -22,7 +22,12 @@ import numpy as np
 from porepy.models.contact_mechanics_model import ContactMechanics
 
 import GTS as gts
-from util.logging_util import __setup_logging, timer, trace
+from util.logging_util import (
+    __setup_logging,
+    timer,
+    trace,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -80,6 +85,7 @@ def test_mechanical_boundary_conditions():
     # 3. Test linear increase of mechanical boundary conditions (lithostatic conditions)
 
 
+@trace(logger)
 def test_decomposition_of_stress():
     """ Test the solutions acquired when decomposing stress to
     purely compressive and purely rotational components.

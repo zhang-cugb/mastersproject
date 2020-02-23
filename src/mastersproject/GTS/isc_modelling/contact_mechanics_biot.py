@@ -435,8 +435,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
             self.tangential_frac_u,
         ]
 
-    @timer
-    @trace
+    @trace(logger, timeit=False)
     def export_step(self):
         """ Export a step
 
@@ -531,8 +530,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
                     }
                     pp.set_state(d, state)
 
-    @timer
-    @trace
+    @trace(logger)
     def before_newton_loop(self):
         """ Will be run before entering a Newton loop.
         E.g.
@@ -546,8 +544,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         # TODO: Discretize only the terms you need.
         super().discretize()
 
-    @timer
-    @trace
+    @trace(logger, timeit=False)
     def after_newton_convergence(self, solution, errors, iteration_counter):
         """ Overwrite from parent to export solution steps."""
         self.assembler.distribute_variable(solution)
@@ -671,8 +668,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         # Current injection amount [litres / second]
         self.current_injection_rate = injection_amount[self.current_phase] / pp.MINUTE
 
-    @timer
-    @trace
+    @timer(logger)
     def prepare_simulation(self):
         """ Is run prior to a time-stepping scheme. Use this to initialize
         discretizations, linear solvers etc.

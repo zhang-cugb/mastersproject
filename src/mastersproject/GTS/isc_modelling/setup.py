@@ -51,8 +51,7 @@ def __setup_logging(path, log_fname="results.log"):
     pp_logger.addHandler(fh)
 
 
-@timer
-@trace
+@trace(logger)
 def run_biot_model(
         *,
         viz_folder_name: str = None,
@@ -123,8 +122,7 @@ def run_biot_model(
     return setup
 
 
-@timer
-@trace
+@trace(logger)
 def run_mechanics_model(
         *,
         viz_folder_name: str = None,
@@ -358,8 +356,7 @@ def create_isc_domain(
     return gb_list
 
 
-@timer
-@trace
+@timer(logger)
 def convergence_study():
     """ Perform a convergence study of a given problem setup.
     """

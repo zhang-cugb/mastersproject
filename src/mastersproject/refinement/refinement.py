@@ -26,9 +26,7 @@ from util.logging_util import timer, trace
 logger = logging.getLogger(__name__)
 
 
-
-@timer
-@trace
+@trace(logger)
 def refine_mesh(
         in_file: str, out_file: str, dim: int,
         network: Union[pp.FractureNetwork3d, pp.FractureNetwork2d],
@@ -93,8 +91,7 @@ def refine_mesh(
     return gb_list
 
 
-@timer
-@trace
+@trace(logger)
 def gb_coarse_fine_cell_mapping(
         gb: pp.GridBucket, gb_ref: pp.GridBucket, tol=1e-8
 ):
@@ -147,8 +144,7 @@ def gb_coarse_fine_cell_mapping(
     return mappings
 
 
-@timer
-@trace
+@trace(logger)
 def coarse_fine_cell_mapping(g: pp.Grid, g_ref: pp.Grid, tol=1e-8):
     """ Construct a mapping between cells of a grid and its refined version
 

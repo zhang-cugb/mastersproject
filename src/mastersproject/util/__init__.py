@@ -1,8 +1,7 @@
 from .logging_util import (
-    warn_slow,
     timer,
     trace,
-    __setup_logging
+    __setup_logging,
 )
 from .pickle_handler import (
     read_pickle,
