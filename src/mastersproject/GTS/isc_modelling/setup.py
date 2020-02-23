@@ -325,7 +325,7 @@ def create_isc_domain(
     # ----------------------------------------
     network = gts.fracture_network(
         shearzone_names=shearzone_names,
-        export=True,
+        export_vtk=True,
         domain=bounding_box,
     )
 

@@ -267,7 +267,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
             g_l, _ = gb.nodes_of_edge(e)
             data_l = gb.node_props(g_l)
 
-            a = self.grid_aperture_from_transmissivity(g_l)
+            a = self.grid_aperture_from_transmissivity(g_l)  # Unscaled
 
             # We assume isotropic permeability in the fracture, i.e. the normal
             # permeability equals the tangential one
