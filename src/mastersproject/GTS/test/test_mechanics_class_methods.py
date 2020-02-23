@@ -121,12 +121,14 @@ def test_decomposition_of_stress():
 
     # 1. Pure normal stress
     params = {'shearzone_names': None, 'stress': normal_stress}
-    setup_n = _prepare_tests(f"{_folder_root}/normal_stress", params=params, prepare_simulation=False)
+    setup_n = _prepare_tests(f"{_folder_root}/normal_stress", params=params,
+                             prepare_simulation=False, setup_loggers=False)
     setup_n.set_grid(gb_n)
 
     # 2. Pure shear stress
     params = {'shearzone_names': None, 'stress': shear_stress}
-    setup_s = _prepare_tests(f"{_folder_root}/shear_stress", params=params, prepare_simulation=False)
+    setup_s = _prepare_tests(f"{_folder_root}/shear_stress", params=params,
+                             prepare_simulation=False, setup_loggers=False)
     setup_s.set_grid(gb_s)
 
     # --- Run simulations ---
@@ -146,7 +148,7 @@ def test_decomposition_of_stress():
 
 
 
-def _prepare_tests(path_head, params=None, prepare_simulation=True):
+def _prepare_tests(path_head, params=None, prepare_simulation=True, setup_loggers=True):
     """ Helper method to create grids, etc. for test methods
     """
     if params is None:
@@ -155,7 +157,8 @@ def _prepare_tests(path_head, params=None, prepare_simulation=True):
     _this_file = Path(os.path.abspath(__file__)).parent
     _results_path = _this_file / f"results/test_mechanics_class_methods/{path_head}"
     _results_path.mkdir(parents=True, exist_ok=True)  # Create path if not exists
-    __setup_logging(_results_path)
+    if setup_loggers:
+        __setup_logging(_results_path)
     logger.info(f"Path to results: {_results_path}")
 
     # --- DOMAIN ARGUMENTS ---
