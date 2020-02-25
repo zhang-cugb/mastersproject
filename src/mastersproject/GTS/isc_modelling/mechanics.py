@@ -62,6 +62,12 @@ class ContactMechanicsISC(ContactMechanics):
                 --- PHYSICAL PARAMETERS ---
                 stress : np.ndarray
                     Stress tensor for boundary conditions
+
+                --- FOR TESTING ---
+                _gravity_bc : bool [Default: True}
+                    turn gravity effects on Neumann bc on/off
+                _gravity_src : bool [Default: True]
+                    turn gravity effects in mechanical source on/off
         """
 
         logger.info(f"Initializing contact mechanics on ISC dataset at {pendulum.now().to_atom_string()}")
@@ -97,6 +103,16 @@ class ContactMechanicsISC(ContactMechanics):
         self.length_scale = params.pop('length_scale')
         print(f"length scale: {self.length_scale}. scalar_scale={self.scalar_scale}")
 
+        #
+        # --- ADJUST CERTAIN PARAMETERS FOR TESTING ---
+
+        # Turn on/off mechanical gravity term
+        self._gravity_src = params.get("_gravity_src", True)
+
+        # Turn on/off gravitational effects on (Neumann) mechanical boundary conditions
+        self._gravity_bc = params.get("_gravity_bc", True)
+
+    @trace(logger)
     def create_grid(self, overwrite_grid: bool = False):
         """ Create a GridBucket of a 3D domain with fractures
         defined by the ISC dataset.
@@ -247,10 +263,12 @@ class ContactMechanicsISC(ContactMechanics):
         bc_values[:, all_bf] += bf_stress / self.scalar_scale  # Mechanical stress
 
         # --- gravitational forces ---
-        lithostatic_bc = self._adjust_stress_for_depth(g, outward_normals)
+        # See init-method to turn on/off gravity effects (Default: ON)
+        if self._gravity_bc:
+            lithostatic_bc = self._adjust_stress_for_depth(g, outward_normals)
 
-        # NEUMANN
-        bc_values[:, all_bf] += lithostatic_bc[:, all_bf] / self.scalar_scale
+            # NEUMANN
+            bc_values[:, all_bf] += lithostatic_bc[:, all_bf] / self.scalar_scale
 
         # DIRICHLET
         faces = self.faces_to_fix(g)
@@ -298,6 +316,9 @@ class ContactMechanicsISC(ContactMechanics):
         negative (i.e. the vector given will be
         pointing upwards)
         """
+        # See init-method to turn on/off gravity effects (Default: ON)
+        if not self._gravity_src:
+            return np.zeros(self.Nd * g.num_cells)
 
         # Gravity term
         values = np.zeros((self.Nd, g.num_cells))
