@@ -19,10 +19,13 @@ import porepy as pp
 import numpy as np
 from porepy.models.contact_mechanics_model import ContactMechanics
 from porepy.models.abstract_model import AbstractModel
+import pendulum
 
 import GTS as gts
 from GTS.prototype_1.mechanics.isotropic_setup import IsotropicSetup
 
+# --- LOGGING UTIL ---
+from util.logging_util import timer, trace
 logger = logging.getLogger(__name__)
 
 
@@ -61,7 +64,7 @@ class ContactMechanicsISC(ContactMechanics):
                     Stress tensor for boundary conditions
         """
 
-        logger.info(f"Initializing contact mechanics on ISC dataset")
+        logger.info(f"Initializing contact mechanics on ISC dataset at {pendulum.now().to_atom_string()}")
         # Root name of solution files
         self.file_name = 'main_run'
 
@@ -274,7 +277,12 @@ class ContactMechanicsISC(ContactMechanics):
         true_stress_depth = self.box['zmax'] * self.length_scale
 
         # We assume the relative sizes of all stress components scale with sigma_zz.
-        stress_scaler = self.stress / self.stress[2, 2]
+        # Except if sigma_zz = 0, then we don't scale.
+        if np.abs(self.stress[2, 2]) < 1e-12:
+            logger.critical("The stress scaler is set to 0 since stress[2, 2] = 0")
+            stress_scaler = np.zeros(self.stress.shape)
+        else:
+            stress_scaler = self.stress / self.stress[2, 2]
 
         # All depths are translated in terms of the assumed depth of the given stress tensor.
         relative_depths = g.face_centers[2] * self.length_scale - true_stress_depth
@@ -371,6 +379,7 @@ class ContactMechanicsISC(ContactMechanics):
             self.tangential_frac_u,
         ]
 
+    @timer(logger)
     def prepare_simulation(self):
         """ Is run prior to a time-stepping scheme. Use this to initialize
         discretizations, linear solvers etc.
