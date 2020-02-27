@@ -385,7 +385,7 @@ class ContactMechanicsISC(ContactMechanics):
 
     def set_viz(self):
         """ Set exporter for visualization """
-        self.viz = pp.Exporter(self.gb, name=self.file_name, folder=self.viz_folder_name)
+        self.viz = pp.Exporter(self.gb, file_name=self.file_name, folder_name=self.viz_folder_name)
         # list of time steps to export with visualization.
 
         self.u_exp = 'u_exp'
