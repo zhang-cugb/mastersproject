@@ -200,6 +200,7 @@ class ContactMechanicsISC(ContactMechanics):
         self.gb = gb
         self.Nd = gb.dim_max()
         self.n_frac = gb.get_grids(lambda _g: _g.dim == self.Nd - 1).size
+        self.gb.add_node_props(keys="name")  # Add 'name' as node prop to all grids.
 
     def faces_to_fix(self, g: pp.Grid):
         """ Fix some boundary faces to dirichlet to ensure unique solution to problem.
