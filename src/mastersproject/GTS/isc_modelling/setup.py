@@ -2,6 +2,7 @@ import os
 import logging
 from typing import (  # noqa
     Any,
+    Callable,
     Coroutine,
     Generator,
     Generic,
@@ -16,6 +17,9 @@ from typing import (  # noqa
     Union,
 )
 from pathlib import Path
+from pprint import pformat
+import functools
+import inspect
 
 import pendulum
 import porepy as pp
@@ -69,42 +73,37 @@ def run_biot_model(
         length_scale, scalar_scale : float : Optional
             Length scale and scalar variable scale.
         """
-    model = gts.ContactMechanicsBiotISC
-    setup = _abstract_model_setup(
-        model, model_type='biot',
-        viz_folder_name=viz_folder_name,
-        mesh_args=mesh_args,
-        bounding_box=bounding_box,
-        shearzone_names=shearzone_names,
-        length_scale=length_scale,
-        scalar_scale=scalar_scale,
-        source_scalar_borehole_shearzone=source_scalar_borehole_shearzone,
+    params = {
+        "folder_name": viz_folder_name,
+        "mesh_args": mesh_args,
+        "bounding_box": bounding_box,
+        "shearzone_names": shearzone_names,
+        "source_scalar_borehole_shearzone": source_scalar_borehole_shearzone,
+        "length_scale": length_scale,
+        "scalar_scale": scalar_scale,
+    }
+
+    setup = run_abstract_model(
+        model=gts.ContactMechanicsBiotISC,
+        run_model_method=pp.run_time_dependent_model,
+        params=params,
     )
 
-    # -------------------------
-    # --- SOLVE THE PROBLEM ---
-    # -------------------------
-    default_options = {  # Parameters for Newton solver.
-        "max_iterations": 20,
-        "nl_convergence_tol": 1e-10,
-        "nl_divergence_tol": 1e5,
-    }
-    newton_options = default_options
-    logger.info(f"Options for Newton solver: \n {newton_options}")
+    return setup
 
-    logger.info("Setup complete. Starting time-dependent simulation")
-    pp.run_time_dependent_model(setup=setup, params=default_options)
-    logger.info(f"Simulation complete. Exporting solution. Time: {pendulum.now().to_atom_string()}")
 
-    # Stimulation phase
-    logger.info(f"Starting stimulation phase at time: {pendulum.now().to_atom_string()}")
-    setup.prepare_main_run()
+@trace(logger)
+def run_biot_gts_model(params):
+    """ Set up and run biot model with
+    an initialization run and a main run.
+    """
 
-    logger.info("Setup complete. Starting time-dependent simulation")
-    pp.run_time_dependent_model(setup=setup, params=default_options)
-    logger.info(f"Simulation complete. Exporting solution. Time: {pendulum.now().to_atom_string()}")
+    setup = run_abstract_model(
+        model=gts.ContactMechanicsBiotISC,
+        run_model_method=gts_biot_model,
+        params=params,
+    )
 
-    logger.info(f"Exits method on {pendulum.now().to_atom_string()}")
     return setup
 
 
@@ -136,15 +135,68 @@ def run_mechanics_model(
     length_scale, scalar_scale : float : Optional
             Length scale and scalar variable scale.
     """
-    model = gts.ContactMechanicsISC
+    params = {
+        "folder_name": viz_folder_name,
+        "mesh_args": mesh_args,
+        "bounding_box": bounding_box,
+        "shearzone_names": shearzone_names,
+        "length_scale": length_scale,
+        "scalar_scale": scalar_scale,
+    }
+
+    setup = run_abstract_model(
+        model=gts.ContactMechanicsISC,
+        run_model_method=pp.run_stationary_model,
+        params=params,
+    )
+
+    return setup
+
+
+def gts_biot_model(setup, params):
+    """ Setup for time-dependent model run at Grimsel Test Site
+
+    Usually called by run_abstract_model if this method is supplied
+    as the argument 'run_model'.
+    """
+
+    # Initialization phase
+    pp.run_time_dependent_model(setup=setup, params=params)
+    logger.info(
+        f"Initial simulation complete. Exporting solution. Time: {pendulum.now().to_atom_string()}"
+    )
+    # Stimulation phase
+    logger.info(f"Starting stimulation phase at time: {pendulum.now().to_atom_string()}")
+    setup.prepare_main_run()
+    logger.info("Setup complete. Starting time-dependent simulation")
+    pp.run_time_dependent_model(setup=setup, params=params)
+
+
+def run_abstract_model(
+        model: Type[ContactMechanics],
+        run_model_method: Callable,
+        params: dict = None,
+        newton_params: dict = None,
+):
+    """ Set up and run an abstract model
+
+    Parameters
+    ----------
+    model : Type[ContactMechanics]
+        Which model to run
+        Only tested for subclasses of ContactMechanicsISC
+    run_model_method : Callable
+        Which method to run model with
+        Typically pp.run_stationary_model or pp.run_time_dependent_model
+    params : dict (Default: None)
+        Any non-default parameters to use
+    newton_params : dict (Default: None)
+        Any non-default newton solver parameters to use
+    """
+
     setup = _abstract_model_setup(
-        model, model_type='mechanics',
-        viz_folder_name=viz_folder_name,
-        mesh_args=mesh_args,
-        bounding_box=bounding_box,
-        shearzone_names=shearzone_names,
-        length_scale=length_scale,
-        scalar_scale=scalar_scale,
+        model=model,
+        params=params,
     )
     # -------------------------
     # --- SOLVE THE PROBLEM ---
@@ -154,124 +206,111 @@ def run_mechanics_model(
         "nl_convergence_tol": 1e-6,
         "nl_divergence_tol": 1e5,
     }
-    newton_options = default_options
+    newton_options = default_options.update(newton_params)
     logger.info(f"Options for Newton solver: \n {newton_options}")
+    logger.info("Setup complete. Starting simulation")
 
-    logger.info("Setup complete. Starting time-dependent simulation")
-    pp.run_stationary_model(setup=setup, params=default_options)
+    run_model_method(setup=setup, params=default_options)
+
     logger.info(f"Simulation complete. Exporting solution. Time: {pendulum.now().to_atom_string()}")
 
     return setup
 
 
 def _abstract_model_setup(
-        model: ContactMechanics,
-        model_type: str,
-        *,
-        viz_folder_name: str = None,
-        mesh_args: dict = None,
-        bounding_box: dict = None,
-        shearzone_names: List[str] = None,
-        length_scale: float = None,
-        scalar_scale: float = None,
-        **kwargs,
+        model: Type[ContactMechanics],
+        params: dict = None,
 ):
     """ Helper method to assemble model setup for biot and mechanics.
 
     Parameters
     ----------
-    model : pp.AbstractModel {ContactMechanicsISC, ContactMechanicsBiotISC}
+    model : Type[ContactMechanics]
         Which model to run
-    model_type : str : {'biot', 'mechanics'}
-        model identifier
-
-
+        Accepted: 'ContactMechanicsISC', 'ContactMechanicsBiotISC'
+    params : dict (Default: None)
+        Custom parameters to pass to model
+        See below of default values
     """
-
-    params = {}
     # ------------------------------------------
     # --- FOLDER AND FILE RELATED PARAMETERS ---
     # ------------------------------------------
-
-    # Set viz folder
-    if viz_folder_name is None:
-        viz_folder_name = (
-            "/home/haakon/mastersproject/src/mastersproject/GTS/isc_modelling/results/new_biot/default"
-        )
-    viz_folder_name = str(viz_folder_name)
-    params['folder_name'] = viz_folder_name
-    # Create viz folder path if it does not already exist
-    Path(viz_folder_name).mkdir(parents=True, exist_ok=True)
-
-    # Set up logging
-    __setup_logging(viz_folder_name)
-    logger.info(f"Preparing setup for mechanics simulation on {pendulum.now().to_atom_string()}")
-    logger.info(f"Visualization folder path: \n {viz_folder_name}")
+    _this_file = Path(os.path.abspath(__file__)).parent
+    path_head = "default/default_1"
+    _results_path = _this_file / f"results/{path_head}"
 
     # ------------------------------------
     # --- MODELLING RELATED PARAMETERS ---
     # ------------------------------------
+    sz = 10
+    mesh_args = {
+        'mesh_size_frac': sz,
+        'mesh_size_min': 0.1 * sz,
+        'mesh_size_bound': 6 * sz,
+    }
 
-    # Set mesh arguments
-    if mesh_args is None:
-        # mesh_size = 14
-        # mesh_args = {  # A very coarse grid
-        #     "mesh_size_frac": mesh_size,
-        #     "mesh_size_min": mesh_size,
-        #     "mesh_size_bound": mesh_size,
-        # }
-        sz = 10
-        mesh_args = {'mesh_size_frac': sz,
-                     'mesh_size_min': 0.1 * sz,
-                     'mesh_size_bound': 6 * sz}
-    params['mesh_args'] = mesh_args
-    logger.info(f"Mesh arguments: \n {mesh_args}")
+    bounding_box = {
+        'xmin': -20,
+        'xmax': 80,
+        'ymin': 50,
+        'ymax': 150,
+        'zmin': -25,
+        'zmax': 75
+    }
 
-    # Set bounding box
-    if bounding_box is None:
-        bounding_box = {'xmin': -20, 'xmax': 80, 'ymin': 50, 'ymax': 150, 'zmin': -25, 'zmax': 75}
-    params['bounding_box'] = bounding_box
-    logger.info(f"Bounding box: \n {bounding_box}")
-
-    # Set which shear-zones to include in simulation
-    params['shearzone_names'] = shearzone_names
-    if shearzone_names:
-        logger.info(f"Shear zones in simulation: \n {shearzone_names}")
-    else:
-        logger.info("No shear zones included in simulation.")
-
-    # Set length scale and scalar scale
-    if length_scale is not None:
-        params['length_scale'] = length_scale
-        logger.info(f"Non-default length scale: {length_scale}")
-    if scalar_scale is not None:
-        params['scalar_scale'] = scalar_scale
-        logger.info(f"Non-default scalar scale: {scalar_scale}")
-
-    # Set solver. 'pyamg' or 'direct'.
-    solver = 'direct'
-    params['solver'] = solver
-    logger.info(f"Solver type: {solver}")
-
-    if model_type == 'biot':
-        # Set which borehole / shearzone to inject fluid to
-        # This corresponds to setup in HS2 from Doetsch et al 2018
-        source_scalar_borehole_shearzone = kwargs.get('source_scalar_borehole_shearzone', None)
-        if source_scalar_borehole_shearzone is None:
-            source_scalar_borehole_shearzone = {
-                "shearzone": "S1_2",
-                "borehole": "INJ1",
-            }
-        params['source_scalar_borehole_shearzone'] = source_scalar_borehole_shearzone
-        logger.info(f"Injection location: \n {source_scalar_borehole_shearzone}")
+    # Set which borehole / shearzone to inject fluid to
+    # This corresponds to setup in HS2 from Doetsch et al 2018
+    source_scalar_borehole_shearzone = {
+        "shearzone": "S1_2",
+        "borehole": "INJ1",
+    }  # (If ContactMechanicsISC is run, this is ignored)
 
     # ---------------------------
     # --- PHYSICAL PARAMETERS ---
     # ---------------------------
 
     stress = stress_tensor()
-    params['stress'] = stress
-    logger.info(f"Stress tensor: \n {stress}")
+
+    # -----------------------------
+    # --- INITIALIZE PARAMETERS ---
+    # -----------------------------
+
+    in_params = {
+        "folder_name":
+            _results_path,
+        "mesh_args":
+            mesh_args,
+        "bounding_box":
+            bounding_box,
+        "shearzone_names":
+            None,
+        "length_scale":
+            1,
+        "scalar_scale":
+            1,
+        "solver":
+            "direct",
+        "source_scalar_borehole_shearzone":
+            source_scalar_borehole_shearzone,
+        "stress":
+            stress,
+    }
+
+    # Update default parameter set with input parameters
+    in_params.update(params)
+
+    # ---------------------
+    # --- BACKEND SETUP ---
+    # ---------------------
+
+    # Create viz folder path if it does not already exist
+    viz_folder_name = in_params["folder_name"]
+    Path(viz_folder_name).mkdir(parents=True, exist_ok=True)
+
+    # Set up logging
+    __setup_logging(viz_folder_name)
+    logger.info(f"Preparing setup for mechanics simulation on {pendulum.now().to_atom_string()}")
+    logger.info(f"Simulation parameters:\n {pformat(in_params)}")
 
     # -------------------
     # --- SETUP MODEL ---
