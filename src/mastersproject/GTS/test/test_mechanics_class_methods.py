@@ -20,6 +20,7 @@ from pathlib import Path
 import porepy as pp
 import numpy as np
 from porepy.models.contact_mechanics_model import ContactMechanics
+import pendulum
 
 import GTS as gts
 from util.logging_util import (
@@ -27,6 +28,7 @@ from util.logging_util import (
     timer,
     trace,
 )
+import GTS.test.util as test_util
 
 logger = logging.getLogger(__name__)
 
@@ -34,15 +36,23 @@ logger = logging.getLogger(__name__)
 def test_mechanical_boundary_conditions():
     """ Test that mechanical boundary conditions are correctly set
     """
+
+    this_method = test_mechanical_boundary_conditions.__name__
+    now_as_YYMMDD = pendulum.now().format("YYMMDD")
+
     # Create setup with no fractures
     params = {'shearzone_names': None}
-    setup = _prepare_tests(path_head="test_mechanical_boundary_conditions", params=params)
+    setup = test_util.prepare_setup(
+        model=gts.ContactMechanicsISC,
+        path_head=f"{this_method}/{now_as_YYMMDD}/test_1",
+        params=params,
+    )
 
     gb: pp.GridBucket = setup.gb
     g: pp.Grid = gb.grids_of_dimension(3)[0]
-    d = gb.node_props(g)
+    data = gb.node_props(g)
 
-    mech_params: dict = d[pp.PARAMETERS][setup.mechanics_parameter_key]
+    mech_params: dict = data[pp.PARAMETERS][setup.mechanics_parameter_key]
     # Get the mechanical bc values
     mech_bc = mech_params['bc_values'].reshape((3, -1), order='F')
     mech_bc_type: pp.BoundaryConditionVectorial = mech_params['bc']
@@ -86,29 +96,63 @@ def test_mechanical_boundary_conditions():
 
 
 @trace(logger)
-def test_decomposition_of_stress():
+def test_decomposition_of_stress(setup='normal_shear'):
     """ Test the solutions acquired when decomposing stress to
     purely compressive and purely rotational components.
 
-    Setup:
-    1. Get the stress tensor and split in diagonal and off-diagonal components.
+    --- Setup ---
+    A: 1. Get the stress tensor and split in diagonal and off-diagonal components.
+    B: 1. Get the stress tensor and split in hydrostatic and deviatoric components.
+    --
     2. Acquire solutions for each split tensor and the full tensor separately (3 cases).
     3. Compare solutions quantitatively (linearity of solution) and qualitatively (Paraview)
 
-    TODO: Alternatively, separate the stress tensor to hydrostatic and deviatoric.
+    Parameters
+    ----------
+    setup : str : {'normal_shear', 'hydrostatic'}
+        Type of setup.
+        'normal_shear' simply separates the normal and shear components
+        'hydrostatic' separates hydrostatic and deviatoric stresses
     """
 
     # Import stress tensor
     stress = gts.isc_modelling.stress_tensor()
 
-    # Get normal and shear stresses
-    normal_stress = np.diag(np.diag(stress).copy())
-    shear_stress = stress - normal_stress
+    if setup == 'normal_shear':
+        # Get normal and shear stresses
+        normal_stress = np.diag(np.diag(stress).copy())
+        shear_stress = stress - normal_stress
+        fname_n = 'normal_stress'
+        fname_s = 'shear_stress'
+    elif setup == 'hydrostatic':
+        # Get hydrostatic and deviatoric stresses
+        hydrostatic = np.mean(np.diag(stress)) * np.ones(stress.shape[0])
+        normal_stress = np.diag(hydrostatic)
+        shear_stress = stress - normal_stress
+        fname_n = 'hydrostatic_stress'
+        fname_s = 'deviatoric_stress'
+    else:
+        raise ValueError(f"Did not recognise input setup={setup}")
 
     # 1. Full stress tensor
-    _folder_root = "test_decomposition_of_stress"
-    params = {'shearzone_names': None, 'stress': normal_stress}
-    setup = _prepare_tests(f"{_folder_root}", params=params, prepare_simulation=False)
+    this_method_name = test_decomposition_of_stress.__name__
+    now_as_YYMMDD = pendulum.now().format("YYMMDD")
+    _folder_root = f"{this_method_name}/{now_as_YYMMDD}/no_gravity/{setup}"
+    gravity = False
+    no_shearzones = None
+    params = {
+        "shearzone_names": no_shearzones,
+        "stress": stress,
+        "_gravity_bc": gravity,
+        "_gravity_src": gravity,
+    }
+    setup = test_util.prepare_setup(
+        model=gts.ContactMechanicsISC,
+        path_head=f"{_folder_root}",
+        params=params,
+        prepare_simulation=False,
+        setup_loggers=True,
+    )
     setup.create_grid()
 
     # -- Safely copy the grid generated above --
@@ -119,72 +163,50 @@ def test_decomposition_of_stress():
     gb_n = pp.fracture_importer.dfm_from_gmsh(path_to_gb_msh, dim=3, network=setup._network)
     gb_s = pp.fracture_importer.dfm_from_gmsh(path_to_gb_msh, dim=3, network=setup._network)
 
-    # 1. Pure normal stress
-    params = {'shearzone_names': None, 'stress': normal_stress}
-    setup_n = _prepare_tests(f"{_folder_root}/normal_stress", params=params,
-                             prepare_simulation=False, setup_loggers=False)
+    # 1. Pure normal stress / hydrostatic stress
+    params_n = params.update({'stress': normal_stress})
+    setup_n = test_util.prepare_setup(
+        model=gts.ContactMechanicsISC,
+        path_head=f"{_folder_root}/{fname_n}",
+        params=params_n,
+        prepare_simulation=False,
+        setup_loggers=False,
+    )
     setup_n.set_grid(gb_n)
 
-    # 2. Pure shear stress
-    params = {'shearzone_names': None, 'stress': shear_stress}
-    setup_s = _prepare_tests(f"{_folder_root}/shear_stress", params=params,
-                             prepare_simulation=False, setup_loggers=False)
+    # 2. Pure shear stress / deviatoric stress
+    params_s = params.update({"stress": shear_stress})
+    setup_s = test_util.prepare_setup(
+        model=gts.ContactMechanicsISC,
+        path_head=f"{_folder_root}/{fname_s}",
+        params=params_s,
+        prepare_simulation=False,
+        setup_loggers=False,
+    )
     setup_s.set_grid(gb_s)
 
     # --- Run simulations ---
-    params = None  # Use default Newton solver parameters
+    params_nl = {}  # Use default Newton solver parameters
 
     # 1. Full stress tensor
-    pp.run_stationary_model(setup, params)
+    pp.run_stationary_model(setup, params_nl)
 
     # 2. Pure normal stress
-    pp.run_stationary_model(setup_n, params)
+    pp.run_stationary_model(setup_n, params_nl)
 
     # 3. Pure shear stress
-    pp.run_stationary_model(setup_s, params)
+    pp.run_stationary_model(setup_s, params_nl)
 
     # --- Compare results ---
+    def get_u(_setup):
+        gb = _setup.gb
+        g = gb.grids_of_dimension(3)[0]
+        d = gb.node_props(g)
+        u = d['state']['u'].reshape((3, -1), order='F')
+        return u
+    return get_u(setup), get_u(setup_n), get_u(setup_s), [setup, setup_n, setup_s]
 
 
 
-
-def _prepare_tests(path_head, params=None, prepare_simulation=True, setup_loggers=True):
-    """ Helper method to create grids, etc. for test methods
-    """
-    if params is None:
-        params = {}
-
-    _this_file = Path(os.path.abspath(__file__)).parent
-    _results_path = _this_file / f"results/test_mechanics_class_methods/{path_head}"
-    _results_path.mkdir(parents=True, exist_ok=True)  # Create path if not exists
-    if setup_loggers:
-        __setup_logging(_results_path)
-    logger.info(f"Path to results: {_results_path}")
-
-    # --- DOMAIN ARGUMENTS ---
-    default_params = {
-        'mesh_args':
-            {'mesh_size_frac': 10, 'mesh_size_min': .1 * 10, 'mesh_size_bound': 6 * 10},
-        'bounding_box':
-            {'xmin': -20, 'xmax': 80, 'ymin': 50, 'ymax': 150, 'zmin': -25, 'zmax': 75},
-        'shearzone_names':
-            ["S1_1", "S1_2", "S1_3", "S3_1", "S3_2"],
-        'folder_name':
-            _results_path,
-        'solver':
-            'direct',
-        'stress':
-            gts.isc_modelling.stress_tensor(),
-        'length_scale':
-            1,
-        'scalar_scale':
-            1,
-    }
-    default_params.update(params)
-
-    setup = gts.ContactMechanicsISC(default_params)
-    if prepare_simulation:
-        setup.prepare_simulation()
-    return setup
 
 
