@@ -9,7 +9,10 @@ from GTS.ISC_data.isc import ISCData, swiss_to_gts
 from GTS.ISC_data.isc import borehole_to_global_coords
 
 # Import fracture tools
-from GTS.ISC_data.fracture import convex_plane, fracture_network
+from GTS.ISC_data.fracture import (
+    convex_plane,
+    fracture_network
+)
 
 # Plane fit tools
 from GTS.fit_plane import plane_from_points  # New, improved method
@@ -17,10 +20,22 @@ from GTS.fit_plane import fit_normal_to_points  # Temporary for prototype testin
 
 from GTS.fit_plane import convex_hull  # Construct the convex hull
 
-# Problem setup and solver classes
-from GTS.isc_modelling.mechanics import ContactMechanicsISC
-from GTS.isc_modelling.mechanics import ContactMechanicsIsotropicISC
-from GTS.isc_modelling.mechanics import run_model as run_model_mechanics
+# -------------------------
+# --- SETUPS AND MODELS ---
+# -------------------------
+
+# --- SETUP AND RUN MODEL---
+from GTS.isc_modelling.setup import (
+    run_mechanics_model,
+    run_biot_model,
+)
+
+# --- MODELS ---
+
+# Contact mechanics model
+from GTS.isc_modelling.mechanics import (
+    ContactMechanicsISC,
+)
+
 # Contact Mechanics Biot
-from GTS.isc_modelling.contact_mechanics_biot import run_model as run_model_cm_biot
 from GTS.isc_modelling.contact_mechanics_biot import ContactMechanicsBiotISC
