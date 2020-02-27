@@ -75,19 +75,19 @@ class ContactMechanicsISC(ContactMechanics):
         self.file_name = 'main_run'
 
         # --- FRACTURES ---
-        self.shearzone_names = params.pop('shearzone_names')
+        self.shearzone_names = params.get('shearzone_names')
         self.n_frac = len(self.shearzone_names) if self.shearzone_names else 0
         # Initialize data storage for normal and tangential jumps
         self.u_jumps_tangential = np.empty((1, self.n_frac))
         self.u_jumps_normal = np.empty((1, self.n_frac))
 
         # --- PHYSICAL PARAMETERS ---
-        self.stress = params.pop('stress')
+        self.stress = params.get('stress')
         self.set_rock()
 
         # --- COMPUTATIONAL MESH ---
-        self.mesh_args = params.pop('mesh_args')
-        self.box = params.pop('bounding_box')
+        self.mesh_args = params.get('mesh_args')
+        self.box = params.get('bounding_box')
         self.gb = None
         self.Nd = None
         self._network = None
@@ -99,9 +99,8 @@ class ContactMechanicsISC(ContactMechanics):
         super().__init__(params=params)
 
         # Scaling coefficients (set after __init__ call because ContactMechanicsISC overwrites the values.
-        self.scalar_scale = params.pop('scalar_scale')
-        self.length_scale = params.pop('length_scale')
-        print(f"length scale: {self.length_scale}. scalar_scale={self.scalar_scale}")
+        self.scalar_scale = params.get('scalar_scale')
+        self.length_scale = params.get('length_scale')
 
         #
         # --- ADJUST CERTAIN PARAMETERS FOR TESTING ---

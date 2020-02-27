@@ -63,14 +63,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         logger.info(f"Initializing contact mechanics biot on ISC dataset")
 
         # --- BOUNDARY, INITIAL, SOURCE CONDITIONS ---
-        self.source_scalar_borehole_shearzone = params.pop('source_scalar_borehole_shearzone')
-
-        # Scaling coefficients
-        # self.scalar_scale = params.pop('scalar_scale', 1 * pp.GIGA)
-        # self.length_scale = params.pop('length_scale', 100 * pp.METER)
-        # print(f"cm_biot calling: length scale: {self.length_scale}. scalar_scale={self.scalar_scale}")
-        # params['scalar_scale'] = self.scalar_scale  # Temporary
-        # params['length_scale'] = self.length_scale  # Temporary
+        self.source_scalar_borehole_shearzone = params.get('source_scalar_borehole_shearzone')
 
         super().__init__(params=params)
 
