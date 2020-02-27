@@ -28,27 +28,13 @@ import GTS as gts
 from refinement import refine_mesh
 
 # --- LOGGING UTIL ---
-from util.logging_util import timer, trace
+from util.logging_util import (
+    timer,
+    trace,
+    __setup_logging,
+)
+
 logger = logging.getLogger(__name__)
-
-
-def __setup_logging(path, log_fname="results.log"):
-    path = str(path)
-    # GTS logger
-    gts_logger = logging.getLogger('GTS')
-    gts_logger.setLevel(logging.INFO)
-
-    # PorePy logger
-    pp_logger = logging.getLogger('porepy')
-    pp_logger.setLevel(logging.DEBUG)
-
-    # Add handler for logging debug messages to file.
-    fh = logging.FileHandler(path + "/" + log_fname)
-    fh.setLevel(logging.DEBUG)
-    fh.setFormatter(logging.Formatter(logging.BASIC_FORMAT))
-
-    gts_logger.addHandler(fh)
-    pp_logger.addHandler(fh)
 
 
 @trace(logger)
