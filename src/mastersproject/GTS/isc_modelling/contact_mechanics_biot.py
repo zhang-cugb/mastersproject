@@ -497,6 +497,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         initialize phase as initial condition for the cell displacements.
         """
         super().initial_condition()
+        # TODO: Set hydrostatic initial condition
 
         # TODO: Scale variables
         if self.current_phase > 0:  # Stimulation phase
