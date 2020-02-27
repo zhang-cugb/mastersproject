@@ -31,7 +31,6 @@ logger = logging.getLogger(__name__)
 
 
 # TODO: Re-introduce all scaling when it is properly understood.
-# TODO: Multiple inheritance from porepy and ContactMechanicsISC
 class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
     """
     TODO: Write class description
