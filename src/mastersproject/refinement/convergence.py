@@ -104,11 +104,12 @@ def grid_error(
             # TODO: If scaling is used, consider that - or use the export-ready variables,
             #   'u_exp', 'p_exp', etc.
             sol = states[var].reshape((var_dof, -1), order='F').T  # (num_cells x var_dof)
-            mapped_sol: np.ndarray = mapping.dot(sol).ravel(order='F')
-            sol_ref = states_ref[var]
+            mapped_sol: np.ndarray = mapping.dot(sol)  # (num_cells x variable_dof)  #.ravel(order='F')
+            sol_ref = states_ref[var].reshape((var_dof, -1), order='F').T  # (num_cells x var_dof)
 
-            absolute_error = np.linalg.norm(mapped_sol - sol_ref)
-            norm_ref = np.linalg.norm(sol_ref)
+            # axis=0 gives component-wise norm.
+            absolute_error = np.linalg.norm(mapped_sol - sol_ref, axis=0)
+            norm_ref = np.linalg.norm(sol_ref, axis=0)
 
             if np.any(norm_ref < 1e-10):
                 logger.warning(f"Relative error not reportable. "
