@@ -116,7 +116,7 @@ def gb_coarse_fine_cell_mapping(
     grids_ref = gb_ref.get_grids()
 
     assert len(grids) == len(grids_ref), "Weakly check that GridBuckets refer to same domains"
-    assert np.array_equal(np.append(*gb.bounding_box()), np.append(*gb_ref.bounding_box())), \
+    assert np.all_close(np.append(*gb.bounding_box()), np.append(*gb_ref.bounding_box())), \
         "Weakly check that GridBuckets refer to same domains"
 
     # This method assumes a consistent node ordering between grids. At least assign one.
