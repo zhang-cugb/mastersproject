@@ -306,7 +306,8 @@ def _prepare_params(
     # --------------------------------------------------------
     # --- UPDATE DEFAULT PARAMETERS WITH CUSTOM PARAMETERS ---
     # --------------------------------------------------------
-
+    if not params:
+        params = {}
     default_params.update(params)
 
     # ---------------------
