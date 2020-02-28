@@ -33,9 +33,14 @@ from refinement import gb_coarse_fine_cell_mapping
 from refinement.convergence import grid_error
 import GTS.test.util as test_util
 
+logger = logging.getLogger(__name__)
 
+
+@trace(logger=logger)
 def test_unit_convergence_study():
     """ Unit test for convergence study
+
+    Simple prototype-like setup.
     """
 
     # 1. Prepare parameters
@@ -59,21 +64,14 @@ def test_unit_convergence_study():
     n_refinements = 2
 
     # Run ContactMechanicsISC model
-    gb_list = gts.isc_modelling.setup.run_models_for_convergence_study(
+    gb_list, errors = gts.isc_modelling.setup.run_models_for_convergence_study(
         model=gts.ContactMechanicsISC,
+        run_model_method=pp.run_stationary_model,
         params=params,
         n_refinements=n_refinements,
+        variable=['u'],
+        variable_dof=[3],
     )
-
-    gb_ref = gb_list[-1]
-
-    errors = []
-    for i in range(0, n_refinements):
-        gb_i = gb_list[i]
-        gb_coarse_fine_cell_mapping(gb=gb_i, gb_ref=gb_ref)
-
-        _error = grid_error(gb=gb_i, gb_ref=gb_ref, variable='u', variable_dof=3)
-        errors.append(_error)
 
     return gb_list, errors
 

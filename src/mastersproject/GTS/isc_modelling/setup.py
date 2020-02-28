@@ -27,6 +27,8 @@ import numpy as np
 import scipy.sparse as sps
 from porepy.models.contact_mechanics_biot_model import ContactMechanicsBiot
 from porepy.models.contact_mechanics_model import ContactMechanics
+from refinement import gb_coarse_fine_cell_mapping
+from refinement.convergence import grid_error
 
 import GTS as gts
 from refinement import refine_mesh
@@ -392,27 +394,55 @@ def create_isc_domain(
 @timer(logger)
 def run_models_for_convergence_study(
         model: Type[ContactMechanics],
+        run_model_method: Callable,
         params: dict,
         n_refinements: int = 1,
-        newton_params: dict = None
-):
+        newton_params: dict = None,
+        variable: List[str] = None,  # This is really required for the moment
+        variable_dof: List[int] = None,
+        setup_loggers: bool = True,
+) -> Tuple[List[pp.GridBucket], List[dict]]:
     """ Run a model on a grid, refined n times.
+
+    For a given model and method to run the model,
+    and a set of parameters, n refinements of the
+    initially generated grid will be performed.
+
 
     Parameters
     ----------
     model : Type[ContactMechanics]
         Which model to run
         Only tested for subclasses of ContactMechanicsISC
+    run_model_method : Callable
+        Which method to run model with
+        Typically pp.run_stationary_model or pp.run_time_dependent_model
     params : dict (Default: None)
         Custom parameters to pass to model
     n_refinements : int (Default: 1)
         Number of grid refinements
     newton_params : dict (Default: None)
         Any non-default newton solver parameters to use
+    variable : List[str]
+        List of variables to consider for convergence study.
+        If 'None', available variables on each sub-domain will be used
+    variable_dof : List[str]
+        Degrees of freedom for each variable
+    setup_loggers : bool (Default: True)
+        whether to set up loggers backend
+
+    Returns
+    -------
+    gb_list : List[pp.GridBucket]
+        list of (n+1) grid buckets in increasing order
+        of refinement (reference grid last)
+    errors : List[dict]
+        List of (n) dictionaries, each containing
+        the error for each variable on each grid.
+        Each list entry corresponds index-wise to an
+        entry in gb_list.
     """
 
-    # TODO: This cookbook is currently spread out.
-    #  See 'test_convergence_study'.
     # 1. Step: Create n grids by uniform refinement.
     # 2. Step: for grid i in list of n grids:
     # 2. a. Step: Set up the mechanics model.
@@ -425,7 +455,7 @@ def run_models_for_convergence_study(
 
     params = _prepare_params(
         params,
-        setup_loggers=True
+        setup_loggers=setup_loggers,
     )
     logger.info(f"Preparing setup for convergence study on {pendulum.now().to_atom_string()}")
 
@@ -457,10 +487,29 @@ def run_models_for_convergence_study(
         setup.set_grid(gb)
 
         logger.info("Setup complete. Starting simulation")
-        pp.run_stationary_model(setup, params=newton_options)
+        run_model_method(setup, params=newton_options)
         logger.info("Simulation complete. Exporting solution.")
 
-    return gb_list
+    # ----------------------
+    # --- COMPUTE ERRORS ---
+    # ----------------------
+
+    gb_ref = gb_list[-1]
+
+    errors = []
+    for i in range(0, n_refinements):
+        gb_i = gb_list[i]
+        gb_coarse_fine_cell_mapping(gb=gb_i, gb_ref=gb_ref)
+
+        _error = grid_error(
+            gb=gb_i,
+            gb_ref=gb_ref,
+            variable=variable,
+            variable_dof=variable_dof,
+        )
+        errors.append(_error)
+
+    return gb_list, errors
 
 
 def stress_tensor():
