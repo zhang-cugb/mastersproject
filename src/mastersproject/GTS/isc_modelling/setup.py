@@ -332,7 +332,8 @@ def create_isc_domain(
         shearzone_names: List[str],
         bounding_box: dict,
         mesh_args: dict,
-        n_refinements: int = 0):
+        n_refinements: int = 0
+) -> List[pp.GridBucket]:
     """ Create a domain (.geo file) for the ISC test site.
 
     Parameters
