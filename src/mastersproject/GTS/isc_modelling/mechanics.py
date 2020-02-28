@@ -548,20 +548,20 @@ class ContactMechanicsISC(ContactMechanics):
         return 480.0 * pp.METER - self.length_scale * coords[2]
 
 
-class ContactMechanicsISCWithGrid(ContactMechanicsISC):
-    """ Solve contact mechanics with a pre-existing grid.
-    """
-
-    def __init__(self, params, gb: pp.GridBucket):
-        super().__init__(params)
-
-        self.gb = gb
-        self.Nd = gb.dim_max()
-
-    def create_grid(self, overwrite_grid=False):
-        # Overwrite method to ensure no new grid is created.
-        assert self.gb is not None
-        return
+# class ContactMechanicsISCWithGrid(ContactMechanicsISC):
+#     """ Solve contact mechanics with a pre-existing grid.
+#     """
+#
+#     def __init__(self, params, gb: pp.GridBucket):
+#         super().__init__(params)
+#
+#         self.gb = gb
+#         self.Nd = gb.dim_max()
+#
+#     def create_grid(self, overwrite_grid=False):
+#         # Overwrite method to ensure no new grid is created.
+#         assert self.gb is not None
+#         return
 
 
 # Define the rock type at Grimsel Test Site

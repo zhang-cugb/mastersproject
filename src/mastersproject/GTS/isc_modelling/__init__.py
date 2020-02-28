@@ -2,4 +2,5 @@ from .setup import (
     stress_tensor,
     create_isc_domain,
 )
-from .mechanics import ContactMechanicsISCWithGrid
+
+# from .mechanics import ContactMechanicsISCWithGrid
