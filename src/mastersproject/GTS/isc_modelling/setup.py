@@ -194,10 +194,16 @@ def run_abstract_model(
         Any non-default newton solver parameters to use
     """
 
-    setup = _abstract_model_setup(
-        model=model,
+    # -------------------
+    # --- SETUP MODEL ---
+    # -------------------
+    params = _prepare_params(
         params=params,
+        setup_loggers=True
     )
+
+    setup = model(params=params)
+
     # -------------------------
     # --- SOLVE THE PROBLEM ---
     # -------------------------
@@ -206,8 +212,10 @@ def run_abstract_model(
         "nl_convergence_tol": 1e-6,
         "nl_divergence_tol": 1e5,
     }
-    newton_options = default_options.update(newton_params)
-    logger.info(f"Options for Newton solver: \n {newton_options}")
+    if not newton_params:
+        newton_params = {}
+    default_options.update(newton_params)
+    logger.info(f"Options for Newton solver: \n {default_options}")
     logger.info("Setup complete. Starting simulation")
 
     run_model_method(setup=setup, params=default_options)
@@ -217,31 +225,30 @@ def run_abstract_model(
     return setup
 
 
-def _abstract_model_setup(
-        model: Type[ContactMechanics],
+def _prepare_params(
         params: dict = None,
+        setup_loggers: bool = True,
 ):
     """ Helper method to assemble model setup for biot and mechanics.
 
     Parameters
     ----------
-    model : Type[ContactMechanics]
-        Which model to run
-        Accepted: 'ContactMechanicsISC', 'ContactMechanicsBiotISC'
     params : dict (Default: None)
         Custom parameters to pass to model
         See below of default values
+    setup_loggers : bool (Default: True)
+        Whether to set up logging functionality
     """
-    # ------------------------------------------
-    # --- FOLDER AND FILE RELATED PARAMETERS ---
-    # ------------------------------------------
+    # --------------------------------------------------
+    # --- DEFAULT FOLDER AND FILE RELATED PARAMETERS ---
+    # --------------------------------------------------
     _this_file = Path(os.path.abspath(__file__)).parent
-    path_head = "default/default_1"
-    _results_path = _this_file / f"results/{path_head}"
+    default_path_head = "default/default_1"
+    _results_path = _this_file / f"results/{default_path_head}"
 
-    # ------------------------------------
-    # --- MODELLING RELATED PARAMETERS ---
-    # ------------------------------------
+    # --------------------------------------------
+    # --- DEFAULT MODELLING RELATED PARAMETERS ---
+    # --------------------------------------------
     sz = 10
     mesh_args = {
         'mesh_size_frac': sz,
@@ -265,17 +272,17 @@ def _abstract_model_setup(
         "borehole": "INJ1",
     }  # (If ContactMechanicsISC is run, this is ignored)
 
-    # ---------------------------
-    # --- PHYSICAL PARAMETERS ---
-    # ---------------------------
+    # -----------------------------------
+    # --- DEFAULT PHYSICAL PARAMETERS ---
+    # -----------------------------------
 
     stress = stress_tensor()
 
-    # -----------------------------
-    # --- INITIALIZE PARAMETERS ---
-    # -----------------------------
+    # -------------------------------------
+    # --- INITIALIZE DEFAULT PARAMETERS ---
+    # -------------------------------------
 
-    in_params = {
+    default_params = {
         "folder_name":
             _results_path,
         "mesh_args":
@@ -296,28 +303,27 @@ def _abstract_model_setup(
             stress,
     }
 
-    # Update default parameter set with input parameters
-    in_params.update(params)
+    # --------------------------------------------------------
+    # --- UPDATE DEFAULT PARAMETERS WITH CUSTOM PARAMETERS ---
+    # --------------------------------------------------------
+
+    default_params.update(params)
 
     # ---------------------
     # --- BACKEND SETUP ---
     # ---------------------
 
     # Create viz folder path if it does not already exist
-    viz_folder_name = in_params["folder_name"]
+    viz_folder_name = default_params["folder_name"]
     Path(viz_folder_name).mkdir(parents=True, exist_ok=True)
 
     # Set up logging
-    __setup_logging(viz_folder_name)
-    logger.info(f"Preparing setup for mechanics simulation on {pendulum.now().to_atom_string()}")
-    logger.info(f"Simulation parameters:\n {pformat(in_params)}")
+    if setup_loggers:
+        __setup_logging(viz_folder_name)
+    logger.info(f"Preparing setup for simulation on {pendulum.now().to_atom_string()}")
+    logger.info(f"Simulation parameters:\n {pformat(default_params)}")
 
-    # -------------------
-    # --- SETUP MODEL ---
-    # -------------------
-
-    setup = model(params=params)
-    return setup
+    return default_params
 
 
 def create_isc_domain(
