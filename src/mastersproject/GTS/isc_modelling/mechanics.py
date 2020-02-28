@@ -201,6 +201,12 @@ class ContactMechanicsISC(ContactMechanics):
         self.n_frac = gb.get_grids(lambda _g: _g.dim == self.Nd - 1).size
         self.gb.add_node_props(keys="name")  # Add 'name' as node prop to all grids.
 
+        # Set fracture grid names
+        if self.n_frac > 0:
+            fracture_grids = self.gb.get_grids(lambda g: g.dim == self.Nd - 1)
+            for i, sz_name in enumerate(self.shearzone_names):
+                self.gb.set_node_prop(fracture_grids[i], key="name", val=sz_name)
+
     def faces_to_fix(self, g: pp.Grid):
         """ Fix some boundary faces to dirichlet to ensure unique solution to problem.
 
