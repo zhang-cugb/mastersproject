@@ -388,8 +388,21 @@ def create_isc_domain(
 
 
 @timer(logger)
-def convergence_study():
-    """ Perform a convergence study of a given problem setup.
+def convergence_study(
+        params: dict,
+        n_refinements: int = 1,
+        newton_params: dict = None
+):
+    """ Run a model on a grid, refined n times.
+
+    Parameters
+    ----------
+    params : dict (Default: None)
+        Custom parameters to pass to model
+    n_refinements : int (Default: 1)
+        Number of grid refinements
+    newton_params : dict (Default: None)
+        Any non-default newton solver parameters to use
     """
 
     # 1. Step: Create n grids by uniform refinement.
@@ -402,66 +415,20 @@ def convergence_study():
     # 4. a. Step: Map the solution to the fine grid, and compute error.
     # 5. Step: Compute order of convergence, etc.
 
-    # -----------------
-    # --- ARGUMENTS ---
-    # -----------------
-    viz_folder_name = Path(os.path.abspath(__file__)).parent / "results/mech_convergence_2test"
-    if not os.path.exists(viz_folder_name):
-        os.makedirs(viz_folder_name, exist_ok=True)
-
-    shearzone_names = ["S1_1", "S1_2", "S1_3", "S3_1", "S3_2"]
-
-    mesh_size = 10
-    mesh_args = {  # A very coarse grid
-        "mesh_size_frac": mesh_size,
-        "mesh_size_min": mesh_size,
-        "mesh_size_bound": mesh_size,
-    }
-
-    bounding_box = {
-        "xmin": -6,
-        "xmax": 80,
-        "ymin": 55,
-        "ymax": 150,
-        "zmin": 0,
-        "zmax": 50,
-    }
+    params = _prepare_params(
+        params,
+        setup_loggers=True
+    )
+    logger.info(f"Preparing setup for convergence study on {pendulum.now().to_atom_string()}")
 
     # 1. Step: Create n grids by uniform refinement.
     gb_list = create_isc_domain(
-        viz_folder_name=viz_folder_name,
-        shearzone_names=shearzone_names,
-        bounding_box=bounding_box,
-        mesh_args=mesh_args,
-        n_refinements=1,
+        viz_folder_name=params['folder_name'],
+        shearzone_names=params['shearzone_names'],
+        bounding_box=params['bounding_box'],
+        mesh_args=params['mesh_args'],
+        n_refinements=n_refinements,
     )
-
-    scales = {
-        'scalar_scale': 1,
-        'length_scale': 1,
-    }
-    solver = 'direct'
-
-    # ---------------------------
-    # --- PHYSICAL PARAMETERS ---
-    # ---------------------------
-
-    stress = stress_tensor()
-
-    # ----------------------
-    # --- SET UP LOGGING ---
-    # ----------------------
-    print(viz_folder_name / "results.log")
-    logger = __setup_logging(viz_folder_name)
-
-    logger.info(f"Preparing setup for mechanics convergence study on {pendulum.now().to_atom_string()}")
-    logger.info(f"Reporting on {len(gb_list)} grid buckets.")
-    logger.info(f"Visualization folder path: \n {viz_folder_name}")
-    logger.info(f"Mesh arguments for coarsest grid: \n {mesh_args}")
-    logger.info(f"Bounding box: \n {bounding_box}")
-    logger.info(f"Variable scaling: \n {scales}")
-    logger.info(f"Solver type: {solver}")
-    logger.info(f"Stress tensor: \n {stress}")
 
     # -----------------------
     # --- SETUP AND SOLVE ---
@@ -472,14 +439,18 @@ def convergence_study():
         "convergence_tol": 1e-10,
         "divergence_tol": 1e5,
     }
+    if not newton_params:
+        newton_params = {}
+    newton_options.update(newton_params)
     logger.info(f"Options for Newton solver: \n {newton_options}")
 
-    from GTS.isc_modelling.mechanics import ContactMechanicsISCWithGrid
     for gb in gb_list:
-        setup = ContactMechanicsISCWithGrid(
-            viz_folder_name, 'main_run', 'linux', mesh_args, bounding_box,
-            shearzone_names, scales, stress, solver, gb,
-        )
+        setup = gts.ContactMechanicsISC(params=params)
+        setup.set_grid(gb)
+        # setup = ContactMechanicsISCWithGrid(
+        #     viz_folder_name, 'main_run', 'linux', mesh_args, bounding_box,
+        #     shearzone_names, scales, stress, solver, gb,
+        # )
 
         logger.info("Setup complete. Starting simulation")
         pp.run_stationary_model(setup, params=newton_options)
