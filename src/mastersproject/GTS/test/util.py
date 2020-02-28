@@ -98,7 +98,7 @@ def prepare_params(
 
     Returns
     -------
-    default_params : dict
+    in_params : dict
         model parameters
     """
 
@@ -114,7 +114,7 @@ def prepare_params(
     logger.info(f"Path to results: {_results_path}")
 
     # --- DOMAIN ARGUMENTS ---
-    default_params = {
+    in_params = {
         'mesh_args':
             {'mesh_size_frac': 10, 'mesh_size_min': .1 * 10, 'mesh_size_bound': 6 * 10},
         'bounding_box':
@@ -134,6 +134,6 @@ def prepare_params(
         'scalar_scale':
             1,
     }
-    default_params.update(params)
+    in_params.update(params)
 
-    return default_params
+    return in_params

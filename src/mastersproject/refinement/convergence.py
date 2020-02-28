@@ -26,7 +26,7 @@ from util.logging_util import timer, trace
 logger = logging.getLogger(__name__)
 
 
-def grid_error(mappings, gb: pp.GridBucket, gb_ref: pp.GridBucket, variable, variable_dof):
+def _grid_error(mappings, gb: pp.GridBucket, gb_ref: pp.GridBucket, variable, variable_dof):
     """ Compute grid errors for a given mapping
 
     The mapping is the one computed by gb_coarse_fine_cell_mapping()

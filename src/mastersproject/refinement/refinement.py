@@ -137,9 +137,12 @@ def gb_coarse_fine_cell_mapping(
 
         mapping = coarse_fine_cell_mapping(g, g_ref, tol=tol)
 
-        mappings[(g, g_ref)] = {'node_number': node_num,
-                                'data': gb.node_props(g),
-                                'data_ref': gb_ref.node_props(g_ref)}
+        mappings[(g, g_ref)] = {
+            'node_number': node_num,
+            'data': gb.node_props(g),
+            'data_ref': gb_ref.node_props(g_ref),
+            'mapping': mapping,
+        }
 
     return mappings
 
