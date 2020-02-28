@@ -47,7 +47,8 @@ def test_compare_run_mech_and_run_mech_by_filter_term():
     # 1. Prepare parameters
     stress = gts.isc_modelling.stress_tensor()
     # We set up hydrostatic stress
-    stress = np.mean(np.diag(stress)) * np.ones(stress.shape[0])
+    hydrostatic = np.mean(np.diag(stress)) * np.ones(stress.shape[0])
+    stress = np.diag(hydrostatic)
     no_shearzones = None
     gravity = False  # No gravity effects
     params = {
@@ -119,7 +120,7 @@ def test_run_mechanics_term_by_filter():
     stress = gts.isc_modelling.stress_tensor()
     # We set up hydrostatic stress
     hydrostatic = np.mean(np.diag(stress)) * np.ones(stress.shape[0])
-    stress = hydrostatic
+    stress = np.diag(hydrostatic)
 
     no_shearzones = None
     gravity = False  # No gravity effects
