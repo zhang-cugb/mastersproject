@@ -109,7 +109,7 @@ def grid_error(
             absolute_error = np.linalg.norm(mapped_sol - sol_ref)
             norm_ref = np.linalg.norm(sol_ref)
 
-            if norm_ref < 1e-5:
+            if np.any(norm_ref < 1e-10):
                 logger.warning(f"Relative error not reportable. "
                                f"Norm of reference solution is {norm_ref}. "
                                f"Reporting absolute error")
@@ -119,7 +119,7 @@ def grid_error(
                 error = absolute_error / norm_ref
                 is_relative = True
 
-            errors[node_number][variable] = {
+            errors[node_number][var] = {
                 "error":
                     error,
                 "is_relative":
