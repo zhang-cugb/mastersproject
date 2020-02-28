@@ -26,6 +26,7 @@ from util.logging_util import timer, trace
 logger = logging.getLogger(__name__)
 
 
+@trace(logger=logger)
 def grid_error(
         gb: pp.GridBucket,
         gb_ref: pp.GridBucket,
