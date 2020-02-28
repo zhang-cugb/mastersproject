@@ -388,7 +388,8 @@ def create_isc_domain(
 
 
 @timer(logger)
-def convergence_study(
+def run_models_for_convergence_study(
+        model: Type[ContactMechanics],
         params: dict,
         n_refinements: int = 1,
         newton_params: dict = None
@@ -397,6 +398,9 @@ def convergence_study(
 
     Parameters
     ----------
+    model : Type[ContactMechanics]
+        Which model to run
+        Only tested for subclasses of ContactMechanicsISC
     params : dict (Default: None)
         Custom parameters to pass to model
     n_refinements : int (Default: 1)
@@ -405,6 +409,8 @@ def convergence_study(
         Any non-default newton solver parameters to use
     """
 
+    # TODO: This cookbook is currently spread out.
+    #  See 'test_convergence_study'.
     # 1. Step: Create n grids by uniform refinement.
     # 2. Step: for grid i in list of n grids:
     # 2. a. Step: Set up the mechanics model.
@@ -445,12 +451,8 @@ def convergence_study(
     logger.info(f"Options for Newton solver: \n {newton_options}")
 
     for gb in gb_list:
-        setup = gts.ContactMechanicsISC(params=params)
+        setup = model(params=params)
         setup.set_grid(gb)
-        # setup = ContactMechanicsISCWithGrid(
-        #     viz_folder_name, 'main_run', 'linux', mesh_args, bounding_box,
-        #     shearzone_names, scales, stress, solver, gb,
-        # )
 
         logger.info("Setup complete. Starting simulation")
         pp.run_stationary_model(setup, params=newton_options)

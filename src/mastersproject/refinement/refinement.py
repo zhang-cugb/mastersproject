@@ -79,7 +79,7 @@ def refine_mesh(
     for i in range(num_refinements):
         gmsh.model.mesh.refine()  # Refined grid
 
-        fname = f"{out_file}_{i+1}.msh"
+        fname = f"{out_file}_{i + 1}.msh"
         gmsh.write(fname)
 
         # Create grid bucket from refined grid output
@@ -140,7 +140,11 @@ def gb_coarse_fine_cell_mapping(
 
 
 @trace(logger)
-def coarse_fine_cell_mapping(g: pp.Grid, g_ref: pp.Grid, tol=1e-8):
+def coarse_fine_cell_mapping(
+        g: pp.Grid,
+        g_ref: pp.Grid,
+        tol=1e-8
+) -> sps.csc_matrix:
     """ Construct a mapping between cells of a grid and its refined version
 
     Assuming a regular and a refined mesh, where the refinement is executed by splitting.
@@ -241,4 +245,3 @@ def coarse_fine_cell_mapping(g: pp.Grid, g_ref: pp.Grid, tol=1e-8):
 
     assert (indices.size == g_ref.num_cells), "Every fine cell should be inside exactly one coarse cell"
     return coarse_fine
-
