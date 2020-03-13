@@ -148,6 +148,98 @@ def test_run_mechanics_term_by_filter():
     return setup
 
 
+def test_run_flow_term_by_filter():
+    """ This test intends to test results of running only
+    the flow terms of the biot equation (on all subdomains)
+
+    -- Key features:
+    * 2 intersecting fractures
+    * Full stress tensor and mechanical gravity terms included
+    * hydrostatic scalar BC's
+    * Initialization phase AND Injection phase (shortened)
+    """
+
+    # 1. Prepare parameters
+    stress = gts.isc_modelling.stress_tensor()
+    # # We set up hydrostatic stress
+    # hydrostatic = np.mean(np.diag(stress)) * np.ones(stress.shape[0])
+    # stress = np.diag(hydrostatic)
+
+    shearzones = ["S1_2", "S3_1"]
+    gravity = True  # False  # No gravity effects
+
+    params = {
+        "stress": stress,
+        "shearzone_names": shearzones,
+        "_gravity_bc": gravity,
+        "_gravity_src": gravity,
+    }
+
+    # Storage folder
+    this_method_name = test_run_flow_term_by_filter.__name__
+    now_as_YYMMDD = pendulum.now().format("YYMMDD")
+    _folder_root = f"{this_method_name}/{now_as_YYMMDD}/test_1"
+
+    #
+    # 2. Setup and run test
+    params = test_util.prepare_params(path_head=_folder_root, params=params, setup_loggers=True)
+    setup = BiotReduceToFlow(params=params)
+
+    nl_params = {}  # Default Newton Iteration parameters
+    pp.run_time_dependent_model(setup, params=nl_params)
+
+    # Stimulation phase
+    logger.info(f"Starting stimulation phase at time: {pendulum.now().to_atom_string()}")
+    setup.prepare_main_run()
+    logger.info("Setup complete. Starting time-dependent simulation")
+    pp.run_time_dependent_model(setup=setup, params=params)
+
+    return setup
+
+
+def test_run_biot_term_by_term(test_name: str):
+    # TODO: THIS METHOD IS NOT FINISHED SET UP (maybe remove it)
+    """ This test intends to investigate various
+    properties of the biot equation by discretizing
+    only certain terms.
+
+    Additional simplifications:
+    * hydrostatic mechanical stress
+    * no mechanical gravity term
+    """
+
+    # 1. Prepare parameters
+    stress = gts.isc_modelling.stress_tensor()
+    # We set up hydrostatic stress
+    hydrostatic = np.mean(np.diag(stress)) * np.ones(stress.shape[0])
+    stress = np.diag(hydrostatic)
+
+    no_shearzones = None
+    gravity = False  # No gravity effects
+
+    params = {
+        "stress": stress,
+        "shearzone_names": no_shearzones,
+        "_gravity_bc": gravity,
+        "_gravity_src": gravity,
+    }
+
+    # Storage folder
+    this_method_name = test_run_biot_term_by_term.__name__
+    now_as_YYMMDD = pendulum.now().format("YYMMDD")
+    _folder_root = f"{this_method_name}/{now_as_YYMMDD}/{test_name}"
+
+    #
+    # 2. Setup and run test
+    params = test_util.prepare_params(path_head=_folder_root, params=params, setup_loggers=True)
+    setup = BiotReduceToMechanics(params=params)
+
+    nl_params = {}  # Default Newton Iteration parameters
+    pp.run_time_dependent_model(setup, params=nl_params)
+
+    return setup
+
+
 # --- Overwrite discretize method in ContactMechanics ---
 # We overwrite the discretize() method to discretize only
 # the desired terms.
@@ -163,3 +255,235 @@ class BiotReduceToMechanics(ContactMechanicsBiotISC):
         self.assembler.discretize(grid=g_max, variable_filter=self.displacement_variable)
 
 
+class BiotReduceToFlow(ContactMechanicsBiotISC):
+    @trace(logger)
+    def discretize(self):
+        """ Discretize the flow terms only"""
+        if not hasattr(self, "assembler"):
+            self.assembler = pp.Assembler(self.gb, active_variables=[self.scalar_variable])
+
+        for g, _ in self.gb:
+            self.assembler.discretize(grid=g, variable_filter=[self.scalar_variable])
+
+    def check_convergence(self, solution, prev_solution, init_solution, nl_params=None):
+        g_max = self._nd_grid()
+
+        if not self._is_nonlinear_problem():
+            # At least for the default direct solver, scipy.sparse.linalg.spsolve, no
+            # error (but a warning) is raised for singular matrices, but a nan solution
+            # is returned. We check for this.
+            diverged = np.any(np.isnan(solution))
+            converged = not diverged
+            error = np.nan if diverged else 0
+            return error, converged, diverged
+
+        scalar_dof = self.assembler.dof_ind(g_max, self.scalar_variable)
+
+        # Pressure solution
+        p_scalar_now = solution[scalar_dof] * self.scalar_scale
+        p_scalar_prev = prev_solution[scalar_dof] * self.scalar_scale
+        p_scalar_init = init_solution[scalar_dof] * self.scalar_scale
+
+        # Calculate errors
+
+        # Pressure scalar error
+        scalar_norm = np.sum(p_scalar_now ** 2)
+        difference_in_iterates_scalar = np.sum((p_scalar_now - p_scalar_prev) ** 2)
+        difference_from_init_scalar = np.sum((p_scalar_now - p_scalar_init) ** 2)
+        logger.info(f"diff iter scalar = {difference_in_iterates_scalar:.6e}")
+        logger.info(f"diff init scalar = {difference_from_init_scalar:.6e}")
+
+        tol_convergence = nl_params["nl_convergence_tol"]
+        # Not sure how to use the divergence criterion
+        # tol_divergence = nl_params["nl_divergence_tol"]
+
+        converged = False
+        diverged = False
+
+        # Converge in pressure on 3D grid
+        converged_p = False
+
+        # -- Scalar solution --
+        # The if is intended to avoid division through zero
+        if difference_in_iterates_scalar < tol_convergence:
+            converged_p = True
+            error_scalar = difference_in_iterates_scalar
+            logger.info(f"pressure converged absolutely")
+        else:
+            # Relative convergence criterion:
+            if difference_in_iterates_scalar < tol_convergence * difference_from_init_scalar:
+                # converged = True
+                converged_p = True
+                logger.info(f"pressure converged relatively")
+
+            error_scalar = (difference_in_iterates_scalar / difference_from_init_scalar)
+
+        converged = converged_p
+
+        return error_scalar, converged, diverged
+
+    def assign_discretizations(self):
+        """
+        Assign discretizations to the nodes and edges of the grid bucket.
+
+        Note the attribute subtract_fracture_pressure: Indicates whether or not to
+        subtract the fracture pressure contribution for the contact traction. This
+        should not be done if the scalar variable is temperature.
+        """
+        from porepy.utils.derived_discretizations import implicit_euler as IE_discretizations
+        # Shorthand
+        key_s, key_m = self.scalar_parameter_key, self.mechanics_parameter_key
+        var_s, var_d = self.scalar_variable, self.displacement_variable
+
+        # Define discretization
+        # For the Nd domain we solve linear elasticity with mpsa.
+        mpsa = pp.Mpsa(key_m)
+        empty_discr = pp.VoidDiscretization(key_m, ndof_cell=self.Nd)
+        # Scalar discretizations (all dimensions)
+        diff_disc_s = IE_discretizations.ImplicitMpfa(key_s)
+        mass_disc_s = IE_discretizations.ImplicitMassMatrix(key_s, var_s)
+        source_disc_s = pp.ScalarSource(key_s)
+        # Coupling discretizations
+        # All dimensions
+        div_u_disc = pp.DivU(
+            key_m,
+            key_s,
+            variable=var_d,
+            mortar_variable=self.mortar_displacement_variable,
+        )
+        # Nd
+        grad_p_disc = pp.GradP(key_m)
+        stabilization_disc_s = pp.BiotStabilization(key_s, var_s)
+
+        # Assign node discretizations
+        for g, d in self.gb:
+            if g.dim == self.Nd:
+                d[pp.DISCRETIZATION] = {
+                    var_d: {"mpsa": mpsa},
+                    var_s: {
+                        "diffusion": diff_disc_s,
+                        "mass": mass_disc_s,
+                        # "stabilization": stabilization_disc_s,
+                        "source": source_disc_s,
+                    },
+                    var_d + "_" + var_s: {"grad_p": grad_p_disc},
+                    var_s + "_" + var_d: {"div_u": div_u_disc},
+                }
+
+            elif g.dim == self.Nd - 1:
+                d[pp.DISCRETIZATION] = {
+                    self.contact_traction_variable: {"empty": empty_discr},
+                    var_s: {
+                        "diffusion": diff_disc_s,
+                        "mass": mass_disc_s,
+                        "source": source_disc_s,
+                    },
+                }
+            else:
+                d[pp.DISCRETIZATION] = {
+                    var_s: {
+                        "diffusion": diff_disc_s,
+                        "mass": mass_disc_s,
+                        "source": source_disc_s,
+                    }
+                }
+
+        # Define edge discretizations for the mortar grid
+        contact_law = pp.ColoumbContact(self.mechanics_parameter_key, self.Nd, mpsa)
+        contact_discr = pp.PrimalContactCoupling(
+            self.mechanics_parameter_key, mpsa, contact_law
+        )
+        # Account for the mortar displacements effect on scalar balance in the matrix,
+        # as an internal boundary contribution, fracture, aperture changes appear as a
+        # source contribution.
+        div_u_coupling = pp.DivUCoupling(
+            self.displacement_variable, div_u_disc, div_u_disc
+        )
+        # Account for the pressure contributions to the force balance on the fracture
+        # (see contact_discr).
+        # This discretization needs the keyword used to store the grad p discretization:
+        grad_p_key = key_m
+        matrix_scalar_to_force_balance = pp.MatrixScalarToForceBalance(
+            grad_p_key, mass_disc_s, mass_disc_s
+        )
+        if self.subtract_fracture_pressure:
+            fracture_scalar_to_force_balance = pp.FractureScalarToForceBalance(
+                mass_disc_s, mass_disc_s
+            )
+
+        for e, d in self.gb.edges():
+            g_l, g_h = self.gb.nodes_of_edge(e)
+
+            if g_h.dim == self.Nd:
+                d[pp.COUPLING_DISCRETIZATION] = {
+                    self.friction_coupling_term: {
+                        g_h: (var_d, "mpsa"),
+                        g_l: (self.contact_traction_variable, "empty"),
+                        (g_h, g_l): (self.mortar_displacement_variable, contact_discr),
+                    },
+                    self.scalar_coupling_term: {
+                        g_h: (var_s, "diffusion"),
+                        g_l: (var_s, "diffusion"),
+                        e: (
+                            self.mortar_scalar_variable,
+                            pp.RobinCoupling(key_s, diff_disc_s),
+                        ),
+                    },
+                    "div_u_coupling": {
+                        g_h: (
+                            var_s,
+                            "mass",
+                        ),  # This is really the div_u, but this is not implemented
+                        g_l: (var_s, "mass"),
+                        e: (self.mortar_displacement_variable, div_u_coupling),
+                    },
+                    "matrix_scalar_to_force_balance": {
+                        g_h: (var_s, "mass"),
+                        g_l: (var_s, "mass"),
+                        e: (
+                            self.mortar_displacement_variable,
+                            matrix_scalar_to_force_balance,
+                        ),
+                    },
+                }
+                if self.subtract_fracture_pressure:
+                    d[pp.COUPLING_DISCRETIZATION].update(
+                        {
+                            "fracture_scalar_to_force_balance": {
+                                g_h: (var_s, "mass"),
+                                g_l: (var_s, "mass"),
+                                e: (
+                                    self.mortar_displacement_variable,
+                                    fracture_scalar_to_force_balance,
+                                ),
+                            }
+                        }
+                    )
+            else:
+                d[pp.COUPLING_DISCRETIZATION] = {
+                    self.scalar_coupling_term: {
+                        g_h: (var_s, "diffusion"),
+                        g_l: (var_s, "diffusion"),
+                        e: (
+                            self.mortar_scalar_variable,
+                            pp.RobinCoupling(key_s, diff_disc_s),
+                        ),
+                    }
+                }
+
+
+class BiotReduceDiscretization(ContactMechanicsBiotISC):
+    def __init__(self, params):
+        super().__init__(params)
+
+        #
+        # Discretize only a subset of terms or variables
+        self._term_filter = params.get("_term_filter", None)
+        self._variable_filter = params.get("_variable_filter", None)
+
+
+    @trace(logger)
+    def discretize(self):
+        """ Discretize only a select term"""
+
+        super().discretize()
