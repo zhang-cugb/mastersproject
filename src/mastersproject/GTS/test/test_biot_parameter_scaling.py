@@ -17,6 +17,7 @@ from typing import (  # noqa
 import os
 from pathlib import Path
 
+import pendulum
 import porepy as pp
 import numpy as np
 from porepy.models.contact_mechanics_model import ContactMechanics
@@ -25,6 +26,7 @@ import GTS as gts
 from .test_create_grid import test_create_grid
 
 from util.logging_util import __setup_logging
+import src.mastersproject.GTS.test.util as test_util
 
 logger = logging.getLogger(__name__)
 
@@ -271,4 +273,42 @@ def test_biot_condition_number(**kw):
     logger.info(f"Max {np.max(np.sum(np.abs(A), axis=1)):.2e} and min {np.min(np.sum(np.abs(A), axis=1)):.2e} A sum.")
 
     return setup
+
+
+def test_param_scaling_on_regular_grid():
+    """ This test intends to verify scaling of variables and solutions
+    by constructing a simple cartesian grid, scale the parameters, and check output.
+
+    If the discretization method is consistent (not necessarily accurate), we should get
+    comparable results on different length and scalar scales.
+    """
+
+    this_method_name = test_param_scaling_on_regular_grid.__name__
+    now_as_YYMMDD = pendulum.now().format("YYMMDD")
+    _folder_root = f"{this_method_name}/{now_as_YYMMDD}/test_1"
+
+    params1 = {
+        "mesh_args":
+            {'mesh_size_frac': 10, 'mesh_size_min': 10, 'mesh_size_bound': 10},
+        "bounding_box":
+            {'xmin': 0, 'xmax': 10,
+             'ymin': 0, 'ymax': 10,
+             'zmin': 0, 'zmax': 10},
+        "shearzone_names":
+            ["SZ_1"],
+        "length_scale":
+            1,
+        "scalar_scale":
+            1,
+    }
+
+    setup = test_util.prepare_setup(
+        model=gts.ContactMechanicsBiotISC,
+        path_head=_folder_root,
+        params=params1,
+        prepare_simulation=False,
+        setup_loggers=True,
+    )
+
+#    gb =
 
