@@ -28,6 +28,7 @@ from GTS.fit_plane import convex_hull  # Construct the convex hull
 from GTS.isc_modelling.setup import (
     run_mechanics_model,
     run_biot_model,
+    run_biot_gts_model,
 )
 
 # --- MODELS ---
