@@ -201,7 +201,7 @@ def run_abstract_model(
     # -------------------
     params = _prepare_params(
         params=params,
-        setup_loggers=True
+        setup_loggers=True,
     )
 
     setup = model(params=params)

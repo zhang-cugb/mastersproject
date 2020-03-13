@@ -143,7 +143,7 @@ def gb_coarse_fine_cell_mapping(
 def coarse_fine_cell_mapping(
         g: pp.Grid,
         g_ref: pp.Grid,
-        tol=1e-8
+        tol=1e-8,
 ) -> sps.csc_matrix:
     """ Construct a mapping between cells of a grid and its refined version
 

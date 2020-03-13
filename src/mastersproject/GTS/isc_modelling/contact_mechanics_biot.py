@@ -467,7 +467,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
                     data_edge = gb.edge_props((g, g_h))
                     u_mortar_local = self.reconstruct_local_displacement_jump(
                         data_edge=data_edge, from_iterate=True).copy()
-                    u_mortar_local = u_mortar_local * self.length_scale
+                    u_mortar_local = u_mortar_local * ls
 
                     traction = d[pp.STATE][self.contact_traction_variable].reshape((Nd, -1), order="F")
 
