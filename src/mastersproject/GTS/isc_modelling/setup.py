@@ -245,8 +245,10 @@ def _prepare_params(
     # --- DEFAULT FOLDER AND FILE RELATED PARAMETERS ---
     # --------------------------------------------------
     _this_file = Path(os.path.abspath(__file__)).parent
-    default_path_head = "default/default_1"
-    _results_path = _this_file / f"results/{default_path_head}"
+    now_as_YYMMDD = pendulum.now().format("YYMMDD")
+    default_path_head = f"{now_as_YYMMDD}/default/default_1"
+    path_head = params.get("path_head", default_path_head)
+    _results_path = _this_file / f"results/{path_head}"
 
     # --------------------------------------------
     # --- DEFAULT MODELLING RELATED PARAMETERS ---
