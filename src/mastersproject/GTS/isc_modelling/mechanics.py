@@ -25,7 +25,7 @@ import GTS as gts
 from GTS.prototype_1.mechanics.isotropic_setup import IsotropicSetup
 
 # --- LOGGING UTIL ---
-from util.logging_util import timer, trace
+from src.mastersproject.util.logging_util import timer, trace
 logger = logging.getLogger(__name__)
 
 

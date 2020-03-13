@@ -34,7 +34,7 @@ import GTS as gts
 from refinement import refine_mesh
 
 # --- LOGGING UTIL ---
-from util.logging_util import (
+from src.mastersproject.util.logging_util import (
     timer,
     trace,
     __setup_logging,

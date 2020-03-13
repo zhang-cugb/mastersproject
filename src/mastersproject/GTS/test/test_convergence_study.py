@@ -24,7 +24,7 @@ from GTS.isc_modelling.contact_mechanics_biot import ContactMechanicsBiotISC
 import pendulum
 
 import GTS as gts
-from util.logging_util import (
+from src.mastersproject.util.logging_util import (
     __setup_logging,
     timer,
     trace,
