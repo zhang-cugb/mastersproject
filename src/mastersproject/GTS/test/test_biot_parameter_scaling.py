@@ -17,7 +17,6 @@ from typing import (  # noqa
 import os
 from pathlib import Path
 
-import pendulum
 import porepy as pp
 import numpy as np
 from porepy.models.contact_mechanics_model import ContactMechanics
