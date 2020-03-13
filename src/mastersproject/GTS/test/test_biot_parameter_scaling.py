@@ -33,7 +33,11 @@ logger = logging.getLogger(__name__)
 
 def test_biot_parameter_scaling(**kw):
     """ Test scaling of parameters in Biot
+
+    No methods are solved. The parameters are simply checked
+    for consistency
     """
+    # --- THIS METHOD NO LONGER WORKS OVER A GRID BECAUSE LENGTH SCALING GIVES SLIGHTLY DIFFERENT MESHES ---
     _this_file = Path(os.path.abspath(__file__)).parent
     _results_path = _this_file / "results/test_biot_parameter_scaling/default"
     _results_path.mkdir(parents=True, exist_ok=True)  # Create path if not exists
