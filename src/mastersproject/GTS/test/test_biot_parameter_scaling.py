@@ -263,6 +263,83 @@ def test_biot_condition_number(
     return setup
 
 
+def test_biot_solution_scaling(
+        test_name: str,
+        ls: float,
+        ss: float
+):
+    """ Test consistency of solution subject to
+    scalar scaling and length scaling of biot.
+
+    Simplifications:
+    * hydrostatic mechanical stress
+    * no mechanical gravity term
+    * No shear zones
+
+    Parameters
+    ----------
+    test_name : str
+        name of this test
+    ls, ss : float
+        length scale and scalar scale, respectively
+    """
+
+    # 1. Prepare parameters
+    stress = gts.isc_modelling.stress_tensor()
+    # We set up hydrostatic stress
+    hydrostatic = np.mean(np.diag(stress)) * np.ones(stress.shape[0])
+    stress = np.diag(hydrostatic)
+
+    no_shearzones = None
+    gravity = False  # No gravity effects
+
+    base_params = {
+        "stress": stress,
+        "shearzone_names": no_shearzones,
+        "_gravity_bc": gravity,
+        "_gravity_src": gravity,
+        "length_scale": 1,
+        "scalar_scale": 1,
+    }
+
+    # Storage folder
+    this_method_name = test_biot_solution_scaling.__name__
+    now_as_YYMMDD = pendulum.now().format("YYMMDD")
+    _master_root = f"{this_method_name}/{now_as_YYMMDD}/{test_name}"
+    _folder_root = f"{_master_root}/unscaled"
+
+    #
+    # 2. Setup and run test
+    params = test_util.prepare_params(
+        path_head=_folder_root,
+        params=base_params.copy(),
+        setup_loggers=True)
+    setup = gts.ContactMechanicsBiotISC(params=params)
+
+    nl_params = {}  # Default Newton Iteration parameters
+    pp.run_time_dependent_model(setup, params=nl_params)
+
+    #
+    # 3. Setup scaled problem and solve
+    scale_str = f"ss{ss}_ls{ls}"
+    _folder_root = f"{_master_root}/{scale_str}"
+
+    params = base_params
+    params["length_scale"] = ls
+    params["scalar_scale"] = ss
+    params = test_util.prepare_params(path_head=_folder_root, params=params.copy(), setup_loggers=False)
+    scaled_setup = gts.ContactMechanicsBiotISC(params=params)
+    pp.run_time_dependent_model(scaled_setup, params=nl_params)
+
+    #
+    # Extract useful solutions
+
+    # 1. Approximate the mapping of variables from the unscaled to the scaled grid
+
+    return setup, scaled_setup
+
+
+
 def test_param_scaling_on_regular_grid():
     """ This test intends to verify scaling of variables and solutions
     by constructing a simple cartesian grid, scale the parameters, and check output.
