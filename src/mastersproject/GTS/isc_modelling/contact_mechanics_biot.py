@@ -652,7 +652,8 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         ]
         next_phase = np.searchsorted(time_intervals, self.time, side='right')
         if next_phase > self.current_phase:
-            logger.info(f"A new phase has started: Phase {next_phase}")
+            logger.info(f"A new phase has started: Phase {next_phase}. "
+                        f"Injection set to {injection_amount[next_phase]} l/min")
 
         # Current phase number:
         self.current_phase = next_phase
