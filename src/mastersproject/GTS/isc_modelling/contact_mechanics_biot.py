@@ -473,7 +473,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
 
                     if g.dim == 2:
                         d[pp.STATE][self.u_exp] = u_mortar_local
-                        d[pp.STATE][self.traction_exp] = traction
+                        d[pp.STATE][self.traction_exp] = traction * ss * ls**2
                     # TODO: Check when this statement is actually called
                     else:  # Only called if solving a 2D problem (i.e. this is a 0D fracture intersection)
                         d[pp.STATE][self.u_exp] = np.vstack(u_mortar_local, np.zeros(u_mortar_local.shape[1]))
