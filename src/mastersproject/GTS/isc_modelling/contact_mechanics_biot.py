@@ -96,6 +96,15 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
             None: 1,  # 3D matrix
         }
 
+        #
+        # --- ADJUST CERTAIN PARAMETERS FOR TESTING ---
+
+        # # Turn on/off scalar gravity term
+        # self._gravity_src_p = params.get("_gravity_src_p", True)
+
+        # Turn on/off gravitational effects on (Dirichlet) scalar boundary conditions
+        self._gravity_bc_p = params.get("_gravity_bc_p", True)
+
     def bc_type_mechanics(self, g):
         """
         We set Neumann values on all but a few boundary faces. Fracture faces also set to Dirichlet.
@@ -121,9 +130,9 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         depth = self._depth(g.face_centers[:, all_bf])
 
         # DIRICHLET
-        bc_values[all_bf] = self.fluid.hydrostatic_pressure(depth) / self.scalar_scale
+        if self._gravity_bc_p:
+            bc_values[all_bf] += self.fluid.hydrostatic_pressure(depth) / self.scalar_scale
         return bc_values
-        # return np.zeros(g.num_faces)
 
     def bc_type_scalar(self, g):
         """ Known boundary conditions (Dirichlet)
@@ -200,7 +209,14 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         """
         flow_rate = self.source_flow_rate()  # Already scaled by self.length_scale
         values = flow_rate * g.tags["well_cells"] * self.time_step
-        # TODO: Hydrostatic pressure
+
+        # TODO: This is wrong: scalar contribution has (integrated) units [m3 / s]
+        #   Perhaps this should just be zero (ref porepy-paper code)
+        # TODO: Q2: Is source flow rate on top of hydrostatic pressure or set absolutely?
+        # Hydrostatic contribution
+        # if self._gravity_src_p:
+        #     depth = self._depth(g.cell_centers)
+        #     values += self.fluid.hydrostatic_pressure(depth) / self.scalar_scale
         return values
 
     def source_mechanics(self, g):
