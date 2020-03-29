@@ -834,3 +834,12 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         """
         return 480.0 * pp.METER - self.length_scale * coords[2]
 
+
+# TODO: Extract the stimulation protocol from ContactMechanicsBiot by the principle of
+#  separation of data from model.
+class StimulationProtocol:
+    """ This class describes a stimulation protocol for the Biot equations
+    """
+
+    def __init__(self):
+        pass
