@@ -155,7 +155,7 @@ def test_biot_parameter_scaling(**kw):
     fs_scl = scaled_flow['source'][test_cell]
     logger.info(f"Unscaled flow source={fs:.2e}")
     logger.info(f"Scaled flow source={fs_scl:.2e}")
-    assert np.allclose(fs * ls ** dim, fs), "fs_scl = fs * length_scale ** dim"
+    assert np.allclose(fs / ls ** dim, fs_scl), "fs_scl = fs / length_scale ** dim"
 
     # Boundary conditions (FLOW)
     #   Dirchlet [Pa]
@@ -191,7 +191,7 @@ def test_biot_parameter_scaling(**kw):
     ms_scl = scaled_mech['source'].reshape((3, -1), order='F')
     logger.info(f"Mechanics source={ms[:, test_cell]}")
     logger.info(f"Mechanics source scaled={ms_scl[:, test_cell]}")
-    assert np.allclose(ms / (ss * ls ** 2), ms_scl)
+    assert np.allclose(ms / ls, ms_scl)
 
 
     # Boundary conditions (MECHANICS)
