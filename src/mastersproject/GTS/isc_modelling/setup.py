@@ -210,7 +210,7 @@ def run_abstract_model(
     # --- SOLVE THE PROBLEM ---
     # -------------------------
     default_options = {  # Parameters for Newton solver.
-        "max_iterations": 20,
+        "max_iterations": 40,
         "nl_convergence_tol": 1e-6,
         "nl_divergence_tol": 1e5,
     }
