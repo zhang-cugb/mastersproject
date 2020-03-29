@@ -465,6 +465,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
                 g_h = gb.node_neighbors(g, only_higher=True)[0]  # Get the higher-dimensional neighbor
                 if g_h.dim == Nd:  # In a fracture
                     data_edge = gb.edge_props((g, g_h))
+                    # TODO: Should I instead export the fracture displacement in global coordinates?
                     u_mortar_local = self.reconstruct_local_displacement_jump(
                         data_edge=data_edge, from_iterate=True).copy()
                     u_mortar_local = u_mortar_local * ls
@@ -497,6 +498,16 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         """
         super().initial_condition()
         # TODO: Set hydrostatic initial condition
+        for g, d in self.gb:
+            depth = self._depth(g.cell_centers)
+            initial_scalar_value = self.fluid.hydrostatic_pressure(depth) / self.scalar_scale
+            d[pp.STATE].update({self.scalar_variable: initial_scalar_value})
+
+        # TODO What hydrostatic scalar initial condition should be set on the mortar grid? lower dim value?
+        for _, d in self.gb.edges():
+            mg = d["mortar_grid"]
+            initial_value = np.zeros(mg.num_cells)
+            d[pp.STATE][self.mortar_scalar_variable] = initial_value
 
         # TODO: Scale variables
         if self.current_phase > 0:  # Stimulation phase
@@ -534,6 +545,9 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         # discretizing only the term you need!
 
         # TODO: Discretize only the terms you need.
+        # The LHS of mechanics equation has no time-dependent terms (3D)
+        # The LHS of flow equation has no time-dependent terms (3D)
+        # We don't update fracture aperture, so flow on the fracture is also not time-dependent (LHS) (2D)
         self.discretize()
 
     @trace(logger, timeit=False)
@@ -568,14 +582,15 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         """
 
         # For the initialization phase, we use the following
-        # start time
-        self.time = - 6 * pp.HOUR
-        # time step
-        self.time_step = 3 * pp.HOUR
-        # end time
-        self.end_time = 0
-
-        # self.time_step = 30 * pp.MINUTE
+        # # start time
+        # self.time = - 72 * pp.HOUR
+        # # time step
+        # self.time_step = 24 * pp.HOUR
+        # # end time
+        # self.end_time = 0
+        self.time = 0
+        self.time_step = 40 * pp.MINUTE
+        self.end_time = 40 * pp.MINUTE
 
     def prepare_main_run(self):
         """ Adjust parameters between initial run and main run
@@ -594,7 +609,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         # time step
         self.time_step = 5 * pp.MINUTE
         # end time
-        self.end_time = 40 * pp.MINUTE  # TODO: Change back to 40 minutes.
+        self.end_time = 20 * pp.MINUTE  # TODO: Change back to 40 minutes.
 
         # Store initial displacements
         for g, d in self.gb:
@@ -605,8 +620,6 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         for e, d in self.gb.edges():
             if e[0].dim == self.Nd:
                 u = d[pp.STATE][self.mortar_displacement_variable]
-
-
                 d["initial_cell_displacements"] = u
 
     def simulation_protocol(self):
@@ -630,7 +643,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
                 """
         time_intervals = [
             # Phase 0: 0 l/min
-            0,
+            1e-10,
             # Phase 1: 10 l/min
             10 * pp.MINUTE,
             # Phase 2: 15 l/min
@@ -642,14 +655,17 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
             # Phase 5: 0 l/min
         ]
 
-        injection_amount = [
-            0,      # Phase 0
-            10,     # Phase 1
-            15,     # Phase 2
-            20,     # Phase 3
-            25,     # Phase 4
-            0,      # Phase 5
-        ]
+        # TODO: TEMPORARY CONSTANT INJECTION
+        injection_amount = [20] * 6
+
+        # injection_amount = [
+        #     0,      # Phase 0
+        #     10,     # Phase 1
+        #     15,     # Phase 2
+        #     20,     # Phase 3
+        #     25,     # Phase 4
+        #     0,      # Phase 5
+        # ]
         next_phase = np.searchsorted(time_intervals, self.time, side='right')
         if next_phase > self.current_phase:
             logger.info(f"A new phase has started: Phase {next_phase}. "
@@ -714,6 +730,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         u_mech_prev = prev_solution[mech_dof] * self.length_scale
         u_mech_init = init_solution[mech_dof] * self.length_scale
 
+        # TODO: Check if scaling of contact variable
         contact_now = solution[contact_dof] * self.scalar_scale * self.length_scale ** 2
         contact_prev = prev_solution[contact_dof] * self.scalar_scale * self.length_scale ** 2
         contact_init = init_solution[contact_dof] * self.scalar_scale * self.length_scale ** 2
