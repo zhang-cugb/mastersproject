@@ -105,7 +105,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         # Turn on/off gravitational effects on (Dirichlet) scalar boundary conditions
         self._gravity_bc_p = params.get("_gravity_bc_p", True)
 
-    def bc_type_mechanics(self, g):
+    def bc_type_mechanics(self, g) -> pp.BoundaryConditionVectorial:
         """
         We set Neumann values on all but a few boundary faces. Fracture faces also set to Dirichlet.
 
@@ -115,12 +115,12 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         """
         return super().bc_type(g)
 
-    def bc_values_mechanics(self, g):
+    def bc_values_mechanics(self, g) -> np.array:
         """ Scaled mechanical stress values as ISC
         """
         return super().bc_values(g)
 
-    def bc_values_scalar(self, g):
+    def bc_values_scalar(self, g) -> np.array:
         """ Hydrostatic flow values
         credit: porepy paper
         """
@@ -134,7 +134,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
             bc_values[all_bf] += self.fluid.hydrostatic_pressure(depth) / self.scalar_scale
         return bc_values
 
-    def bc_type_scalar(self, g):
+    def bc_type_scalar(self, g) -> pp.BoundaryCondition:
         """ Known boundary conditions (Dirichlet)
         """
         # Define boundary regions
@@ -142,7 +142,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         # Define boundary condition on faces
         return pp.BoundaryCondition(g, all_bf, ["dir"] * all_bf.size)
 
-    def source_flow_rate(self):
+    def source_flow_rate(self) -> float:
         """ Scaled source flow rate
 
         [From Grimsel Experiment Description]:
@@ -157,7 +157,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         injection_rate = self.current_injection_rate
         return injection_rate * pp.MILLI * (pp.METER / self.length_scale) ** self.Nd
 
-    def well_cells(self):
+    def well_cells(self) -> None:
         """
         Tag well cells with unity values, positive for injection cells and
         negative for production cells.
@@ -202,7 +202,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         if not tagged:
             logger.warning("No injection cell was tagged.")
 
-    def source_scalar(self, g: pp.Grid):
+    def source_scalar(self, g: pp.Grid) -> np.array:
         """ Well-bore source
 
         This is an example implementation of a borehole-fracture source.
@@ -219,11 +219,11 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         #     values += self.fluid.hydrostatic_pressure(depth) / self.scalar_scale
         return values
 
-    def source_mechanics(self, g):
+    def source_mechanics(self, g) -> np.array:
         """ Scaled gravity term. """
         return super().source(g)
 
-    def _permeability_from_transmissivity(self, T, b, theta=None):
+    def _permeability_from_transmissivity(self, T, b, theta=None) -> float:
         """ Compute permeability [m2] from transmissivity [m2/s]
 
         We can relate permeability, k [m2] with transmissivity, T [m2/s]
@@ -240,7 +240,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         k = T * mu / (rho * g * b)
         return k
 
-    def grid_permeability_from_transmissivity(self, g, theta=None):
+    def grid_permeability_from_transmissivity(self, g, theta=None) -> np.array:
         """ Wrapper for permeability_from_transmissivity
         Returns the uniform permeability over the grid g (np.array of size g.num_cells)
         """
@@ -250,7 +250,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         permeability = self._permeability_from_transmissivity(T, b, theta=theta)  # Unscaled
         return permeability * np.ones(g.num_cells)
 
-    def set_permeability_from_transmissivity(self):
+    def set_permeability_from_transmissivity(self) -> None:
         """ Set permeability in fracture and matrix from transmissivity
 
         The formula,
@@ -287,13 +287,15 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
                 "second_order_tensor"
             ].values[0, 0]
             # Division through half the aperture represents taking the (normal) gradient
-            # TODO: Check scaling for 'kn'
-            kn = mg.slave_to_mortar_int() * np.divide(k_s, a / 2) * self.scalar_scale
-            d = pp.initialize_data(
-                e, d, self.scalar_parameter_key, {"normal_diffusivity": kn}
-            )  # TODO: Check if it should be mg
+            normal_diffusivity = mg.slave_to_mortar_int() * np.divide(kappa, aperture / 2)
+            data_edge = pp.initialize_data(
+                e,
+                data_edge,
+                self.scalar_parameter_key,
+                {"normal_diffusivity": normal_diffusivity},
+            )
 
-    def _aperture_from_transmissivity(self, T, b, theta=None):
+    def _aperture_from_transmissivity(self, T, b, theta=None) -> float:
         """ Compute hydraulic aperture [m] from transmissivity [m2/s]
 
         We use the following relation (derived from cubic law):
@@ -309,7 +311,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         hydraulic_aperture = np.sqrt(12 * mu * T / (rho * g * b))
         return hydraulic_aperture
 
-    def grid_aperture_from_transmissivity(self, g: pp.Grid, theta=None):
+    def grid_aperture_from_transmissivity(self, g: pp.Grid, theta=None) -> np.array:
         """ Grid wrapper for aperture_from_transmissivity
         Returns the uniform aperture over the grid g (np.array of size g.num_cells)
         """
@@ -317,9 +319,9 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         T = self.transmissivity[shearzone]
         b = self.aquifer_thickness[shearzone]
         aperture = self._aperture_from_transmissivity(T, b, theta=theta)  # Unscaled
-        return aperture * g.num_cells
+        return aperture * np.ones(g.num_cells)
 
-    def set_rock_and_fluid(self):
+    def set_rock_and_fluid(self) -> None:
         """
         Set rock and fluid properties to those of granite and water.
         We ignore all temperature effects.
@@ -331,13 +333,13 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         # Fluid. Temperature at ISC is 11 degrees average.
         self.fluid = pp.Water(theta_ref=11)
 
-    def set_parameters(self):
+    def set_parameters(self) -> None:
         """ Set biot parameters
         """
         self.set_mechanics_parameters()
         self.set_scalar_parameters()
 
-    def set_mechanics_parameters(self):
+    def set_mechanics_parameters(self) -> None:
         """ Set mechanics parameters for the simulation.
         """
         # TODO Consider calling super().set_parameters(),
@@ -384,12 +386,12 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
             mg = d["mortar_grid"]
             pp.initialize_data(mg, d, self.mechanics_parameter_key)
 
-    def set_scalar_parameters(self):
+    def set_scalar_parameters(self) -> None:
         """ Set scalar parameters for the simulation
         """
         gb = self.gb
 
-        compressibility = self.fluid.COMPRESSIBILITY * self.scalar_scale  # Units [1/Pa]
+        compressibility = self.fluid.COMPRESSIBILITY * (self.scalar_scale / pp.PASCAL)  # scaled. [1/Pa]
         porosity = self.rock.POROSITY
         for g, d in gb:
             # specific volume
@@ -638,7 +640,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
                 u = d[pp.STATE][self.mortar_displacement_variable]
                 d["initial_cell_displacements"] = u
 
-    def simulation_protocol(self):
+    def simulation_protocol(self) -> None:
         """ Adjust time step and other parameters for simulation protocol
 
                 Here, we consider Doetsch et al (2018) [see e.g. p. 78/79 or App. J]
