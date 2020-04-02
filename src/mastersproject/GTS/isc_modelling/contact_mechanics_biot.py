@@ -262,30 +262,32 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         In the 3D rock matrix, we use 1.
         """
 
-        viscosity = self.fluid.dynamic_viscosity() / self.scalar_scale
+        viscosity = self.fluid.dynamic_viscosity() * (pp.PASCAL / self.scalar_scale)
         gb = self.gb
         for g, d in gb:
-            k = self.grid_permeability_from_transmissivity(g) / (self.length_scale ** 2)
+            # specific volume
+            aperture = self.grid_aperture_from_transmissivity(g) * (pp.METER / self.length_scale)  # scaled aperture
+            specific_volume = np.power(aperture, self.Nd - g.dim)
 
-            kxx = k / viscosity
+            k = self.grid_permeability_from_transmissivity(g) * (pp.METER / self.length_scale) ** 2
 
-            k_tensor = pp.SecondOrderTensor(kxx)
-            d[pp.PARAMETERS][self.scalar_parameter_key]["second_order_tensor"] = k_tensor
+            diffusivity = pp.SecondOrderTensor(
+                specific_volume * k / viscosity
+            )
+            d[pp.PARAMETERS][self.scalar_parameter_key]["second_order_tensor"] = diffusivity
 
         # TODO: Understand how permeability works on the mortar grid.
         # Normal permeability inherited from the neighboring fracture g_l
-        for e, d in gb.edges():
-            mg = d["mortar_grid"]
-            g_l, _ = gb.nodes_of_edge(e)
-            data_l = gb.node_props(g_l)
+        for e, data_edge in gb.edges():
+            mg = data_edge["mortar_grid"]
+            g_l, _ = gb.nodes_of_edge(e)  # get the lower-dimensional neighbor.
 
-            a = self.grid_aperture_from_transmissivity(g_l)  # Unscaled
+            aperture = self.grid_aperture_from_transmissivity(g_l) * (pp.METER / self.length_scale)  # scaled aperture
 
             # We assume isotropic permeability in the fracture, i.e. the normal
             # permeability equals the tangential one
-            k_s = data_l[pp.PARAMETERS][self.scalar_parameter_key][
-                "second_order_tensor"
-            ].values[0, 0]
+            k = self.grid_permeability_from_transmissivity(g_l) * (pp.METER / self.length_scale) ** 2
+            kappa = k / viscosity  # scaled k/mu
             # Division through half the aperture represents taking the (normal) gradient
             normal_diffusivity = mg.slave_to_mortar_int() * np.divide(kappa, aperture / 2)
             data_edge = pp.initialize_data(
@@ -395,7 +397,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         porosity = self.rock.POROSITY
         for g, d in gb:
             # specific volume
-            aperture = self.grid_aperture_from_transmissivity(g)
+            aperture = self.grid_aperture_from_transmissivity(g) * (pp.METER / self.length_scale)  # scaled aperture
             specific_volume = np.power(aperture, self.Nd - g.dim)
 
             # Boundary and source conditions
