@@ -30,7 +30,6 @@ class ISCData:
                  which is known relative to this class.
 
         """
-        # TODO: Remove the 'linux' and 'windows' options. Instead, find the location automatically.
         # Verify path to data set.
         if path is None:
             path = Path(os.path.abspath(__file__))

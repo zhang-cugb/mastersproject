@@ -24,7 +24,7 @@ from GTS.isc_modelling.mechanics import ContactMechanicsISC
 import pendulum
 
 import GTS as gts
-from util.logging_util import (
+from src.mastersproject.util.logging_util import (
     __setup_logging,
     timer,
     trace,
@@ -89,7 +89,7 @@ def prepare_params(
     path_head : str
         folder structure to store results in.
         Computed relative to:
-            '...GTS/test/{test_method_name}/{path_head}'
+            '...GTS/test/results/{path_head}'
     params : dict
         Update or pass additional parameters to params
     setup_loggers: bool

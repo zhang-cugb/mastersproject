@@ -25,7 +25,7 @@ import GTS as gts
 from GTS.prototype_1.mechanics.isotropic_setup import IsotropicSetup
 
 # --- LOGGING UTIL ---
-from util.logging_util import timer, trace
+from src.mastersproject.util.logging_util import timer, trace
 logger = logging.getLogger(__name__)
 
 
@@ -197,6 +197,7 @@ class ContactMechanicsISC(ContactMechanics):
         """ Set a new grid
         """
         self.gb = gb
+        pp.contact_conditions.set_projections(self.gb)
         self.Nd = gb.dim_max()
         self.n_frac = gb.get_grids(lambda _g: _g.dim == self.Nd - 1).size
         self.gb.add_node_props(keys="name")  # Add 'name' as node prop to all grids.
@@ -228,7 +229,7 @@ class ContactMechanicsISC(ContactMechanics):
         faces = all_bf[indexes[: self.Nd]]
         return faces
 
-    def bc_type(self, g: pp.Grid):
+    def bc_type(self, g: pp.Grid) -> pp.BoundaryConditionVectorial:
         """
         We set Neumann values on all but a few boundary faces. Fracture faces also set to Dirichlet.
 
@@ -245,7 +246,7 @@ class ContactMechanicsISC(ContactMechanics):
         bc.is_dir[:, fracture_faces] = True
         return bc
 
-    def bc_values(self, g: pp.Grid):
+    def bc_values(self, g: pp.Grid) -> np.array:
         """ Mechanical stress values as ISC
 
         All faces are Neumann, except 3 faces fixed
@@ -314,7 +315,7 @@ class ContactMechanicsISC(ContactMechanics):
         lithostatic_stress = stress_scaler.dot(np.multiply(outward_normals, rho_g_h))
         return lithostatic_stress
 
-    def source(self, g: pp.Grid):
+    def source(self, g: pp.Grid) -> np.array:
         """ Gravity term.
 
         Gravity points downward, but we give the term

@@ -25,8 +25,7 @@ from GTS.isc_modelling.mechanics import ContactMechanicsISC
 import GTS as gts
 
 # --- LOGGING UTIL ---
-from util.logging_util import timer, trace
-
+from src.mastersproject.util.logging_util import timer, trace
 logger = logging.getLogger(__name__)
 
 
@@ -97,7 +96,16 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
             None: 1,  # 3D matrix
         }
 
-    def bc_type_mechanics(self, g):
+        #
+        # --- ADJUST CERTAIN PARAMETERS FOR TESTING ---
+
+        # # Turn on/off scalar gravity term
+        # self._gravity_src_p = params.get("_gravity_src_p", True)
+
+        # Turn on/off gravitational effects on (Dirichlet) scalar boundary conditions
+        self._gravity_bc_p = params.get("_gravity_bc_p", True)
+
+    def bc_type_mechanics(self, g) -> pp.BoundaryConditionVectorial:
         """
         We set Neumann values on all but a few boundary faces. Fracture faces also set to Dirichlet.
 
@@ -107,12 +115,12 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         """
         return super().bc_type(g)
 
-    def bc_values_mechanics(self, g):
+    def bc_values_mechanics(self, g) -> np.array:
         """ Scaled mechanical stress values as ISC
         """
         return super().bc_values(g)
 
-    def bc_values_scalar(self, g):
+    def bc_values_scalar(self, g) -> np.array:
         """ Hydrostatic flow values
         credit: porepy paper
         """
@@ -122,11 +130,11 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         depth = self._depth(g.face_centers[:, all_bf])
 
         # DIRICHLET
-        bc_values[all_bf] = self.fluid.hydrostatic_pressure(depth) / self.scalar_scale
+        if self._gravity_bc_p:
+            bc_values[all_bf] += self.fluid.hydrostatic_pressure(depth) / self.scalar_scale
         return bc_values
-        # return np.zeros(g.num_faces)
 
-    def bc_type_scalar(self, g):
+    def bc_type_scalar(self, g) -> pp.BoundaryCondition:
         """ Known boundary conditions (Dirichlet)
         """
         # Define boundary regions
@@ -134,7 +142,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         # Define boundary condition on faces
         return pp.BoundaryCondition(g, all_bf, ["dir"] * all_bf.size)
 
-    def source_flow_rate(self):
+    def source_flow_rate(self) -> float:
         """ Scaled source flow rate
 
         [From Grimsel Experiment Description]:
@@ -149,7 +157,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         injection_rate = self.current_injection_rate
         return injection_rate * pp.MILLI * (pp.METER / self.length_scale) ** self.Nd
 
-    def well_cells(self):
+    def well_cells(self) -> None:
         """
         Tag well cells with unity values, positive for injection cells and
         negative for production cells.
@@ -194,21 +202,28 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         if not tagged:
             logger.warning("No injection cell was tagged.")
 
-    def source_scalar(self, g: pp.Grid):
+    def source_scalar(self, g: pp.Grid) -> np.array:
         """ Well-bore source
 
         This is an example implementation of a borehole-fracture source.
         """
         flow_rate = self.source_flow_rate()  # Already scaled by self.length_scale
         values = flow_rate * g.tags["well_cells"] * self.time_step
-        # TODO: Hydrostatic pressure
+
+        # TODO: This is wrong: scalar contribution has (integrated) units [m3 / s]
+        #   Perhaps this should just be zero (ref porepy-paper code)
+        # TODO: Q2: Is source flow rate on top of hydrostatic pressure or set absolutely?
+        # Hydrostatic contribution
+        # if self._gravity_src_p:
+        #     depth = self._depth(g.cell_centers)
+        #     values += self.fluid.hydrostatic_pressure(depth) / self.scalar_scale
         return values
 
-    def source_mechanics(self, g):
+    def source_mechanics(self, g) -> np.array:
         """ Scaled gravity term. """
         return super().source(g)
 
-    def _permeability_from_transmissivity(self, T, b, theta=None):
+    def _permeability_from_transmissivity(self, T, b, theta=None) -> float:
         """ Compute permeability [m2] from transmissivity [m2/s]
 
         We can relate permeability, k [m2] with transmissivity, T [m2/s]
@@ -225,7 +240,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         k = T * mu / (rho * g * b)
         return k
 
-    def grid_permeability_from_transmissivity(self, g, theta=None):
+    def grid_permeability_from_transmissivity(self, g, theta=None) -> np.array:
         """ Wrapper for permeability_from_transmissivity
         Returns the uniform permeability over the grid g (np.array of size g.num_cells)
         """
@@ -235,7 +250,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         permeability = self._permeability_from_transmissivity(T, b, theta=theta)  # Unscaled
         return permeability * np.ones(g.num_cells)
 
-    def set_permeability_from_transmissivity(self):
+    def set_permeability_from_transmissivity(self) -> None:
         """ Set permeability in fracture and matrix from transmissivity
 
         The formula,
@@ -247,38 +262,42 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         In the 3D rock matrix, we use 1.
         """
 
-        viscosity = self.fluid.dynamic_viscosity() / self.scalar_scale
+        viscosity = self.fluid.dynamic_viscosity() * (pp.PASCAL / self.scalar_scale)
         gb = self.gb
         for g, d in gb:
-            k = self.grid_permeability_from_transmissivity(g) / (self.length_scale ** 2)
+            # specific volume
+            aperture = self.grid_aperture_from_transmissivity(g) * (pp.METER / self.length_scale)  # scaled aperture
+            specific_volume = np.power(aperture, self.Nd - g.dim)
 
-            kxx = k / viscosity
+            k = self.grid_permeability_from_transmissivity(g) * (pp.METER / self.length_scale) ** 2
 
-            k_tensor = pp.SecondOrderTensor(kxx)
-            d[pp.PARAMETERS][self.scalar_parameter_key]["second_order_tensor"] = k_tensor
+            diffusivity = pp.SecondOrderTensor(
+                specific_volume * k / viscosity
+            )
+            d[pp.PARAMETERS][self.scalar_parameter_key]["second_order_tensor"] = diffusivity
 
         # TODO: Understand how permeability works on the mortar grid.
         # Normal permeability inherited from the neighboring fracture g_l
-        for e, d in gb.edges():
-            mg = d["mortar_grid"]
-            g_l, _ = gb.nodes_of_edge(e)
-            data_l = gb.node_props(g_l)
+        for e, data_edge in gb.edges():
+            mg = data_edge["mortar_grid"]
+            g_l, _ = gb.nodes_of_edge(e)  # get the lower-dimensional neighbor.
 
-            a = self.grid_aperture_from_transmissivity(g_l)  # Unscaled
+            aperture = self.grid_aperture_from_transmissivity(g_l) * (pp.METER / self.length_scale)  # scaled aperture
 
             # We assume isotropic permeability in the fracture, i.e. the normal
             # permeability equals the tangential one
-            k_s = data_l[pp.PARAMETERS][self.scalar_parameter_key][
-                "second_order_tensor"
-            ].values[0, 0]
+            k = self.grid_permeability_from_transmissivity(g_l) * (pp.METER / self.length_scale) ** 2
+            kappa = k / viscosity  # scaled k/mu
             # Division through half the aperture represents taking the (normal) gradient
-            # TODO: Check scaling for 'kn'
-            kn = mg.slave_to_mortar_int() * np.divide(k_s, a / 2) * self.scalar_scale
-            d = pp.initialize_data(
-                e, d, self.scalar_parameter_key, {"normal_diffusivity": kn}
-            )  # TODO: Check if it should be mg
+            normal_diffusivity = mg.slave_to_mortar_int() * np.divide(kappa, aperture / 2)
+            data_edge = pp.initialize_data(
+                e,
+                data_edge,
+                self.scalar_parameter_key,
+                {"normal_diffusivity": normal_diffusivity},
+            )
 
-    def _aperture_from_transmissivity(self, T, b, theta=None):
+    def _aperture_from_transmissivity(self, T, b, theta=None) -> float:
         """ Compute hydraulic aperture [m] from transmissivity [m2/s]
 
         We use the following relation (derived from cubic law):
@@ -294,7 +313,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         hydraulic_aperture = np.sqrt(12 * mu * T / (rho * g * b))
         return hydraulic_aperture
 
-    def grid_aperture_from_transmissivity(self, g: pp.Grid, theta=None):
+    def grid_aperture_from_transmissivity(self, g: pp.Grid, theta=None) -> np.array:
         """ Grid wrapper for aperture_from_transmissivity
         Returns the uniform aperture over the grid g (np.array of size g.num_cells)
         """
@@ -302,9 +321,9 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         T = self.transmissivity[shearzone]
         b = self.aquifer_thickness[shearzone]
         aperture = self._aperture_from_transmissivity(T, b, theta=theta)  # Unscaled
-        return aperture * g.num_cells
+        return aperture * np.ones(g.num_cells)
 
-    def set_rock_and_fluid(self):
+    def set_rock_and_fluid(self) -> None:
         """
         Set rock and fluid properties to those of granite and water.
         We ignore all temperature effects.
@@ -316,13 +335,13 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         # Fluid. Temperature at ISC is 11 degrees average.
         self.fluid = pp.Water(theta_ref=11)
 
-    def set_parameters(self):
+    def set_parameters(self) -> None:
         """ Set biot parameters
         """
         self.set_mechanics_parameters()
         self.set_scalar_parameters()
 
-    def set_mechanics_parameters(self):
+    def set_mechanics_parameters(self) -> None:
         """ Set mechanics parameters for the simulation.
         """
         # TODO Consider calling super().set_parameters(),
@@ -369,16 +388,16 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
             mg = d["mortar_grid"]
             pp.initialize_data(mg, d, self.mechanics_parameter_key)
 
-    def set_scalar_parameters(self):
+    def set_scalar_parameters(self) -> None:
         """ Set scalar parameters for the simulation
         """
         gb = self.gb
 
-        compressibility = self.fluid.COMPRESSIBILITY * self.scalar_scale  # Units [1/Pa]
+        compressibility = self.fluid.COMPRESSIBILITY * (self.scalar_scale / pp.PASCAL)  # scaled. [1/Pa]
         porosity = self.rock.POROSITY
         for g, d in gb:
             # specific volume
-            aperture = self.grid_aperture_from_transmissivity(g)
+            aperture = self.grid_aperture_from_transmissivity(g) * (pp.METER / self.length_scale)  # scaled aperture
             specific_volume = np.power(aperture, self.Nd - g.dim)
 
             # Boundary and source conditions
@@ -466,15 +485,16 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
                 g_h = gb.node_neighbors(g, only_higher=True)[0]  # Get the higher-dimensional neighbor
                 if g_h.dim == Nd:  # In a fracture
                     data_edge = gb.edge_props((g, g_h))
+                    # TODO: Should I instead export the fracture displacement in global coordinates?
                     u_mortar_local = self.reconstruct_local_displacement_jump(
                         data_edge=data_edge, from_iterate=True).copy()
-                    u_mortar_local = u_mortar_local * self.length_scale
+                    u_mortar_local = u_mortar_local * ls
 
                     traction = d[pp.STATE][self.contact_traction_variable].reshape((Nd, -1), order="F")
 
                     if g.dim == 2:
                         d[pp.STATE][self.u_exp] = u_mortar_local
-                        d[pp.STATE][self.traction_exp] = traction
+                        d[pp.STATE][self.traction_exp] = traction * ss * ls**2
                     # TODO: Check when this statement is actually called
                     else:  # Only called if solving a 2D problem (i.e. this is a 0D fracture intersection)
                         d[pp.STATE][self.u_exp] = np.vstack(u_mortar_local, np.zeros(u_mortar_local.shape[1]))
@@ -498,6 +518,16 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         """
         super().initial_condition()
         # TODO: Set hydrostatic initial condition
+        for g, d in self.gb:
+            depth = self._depth(g.cell_centers)
+            initial_scalar_value = self.fluid.hydrostatic_pressure(depth) / self.scalar_scale
+            d[pp.STATE].update({self.scalar_variable: initial_scalar_value})
+
+        # TODO What hydrostatic scalar initial condition should be set on the mortar grid? lower dim value?
+        for _, d in self.gb.edges():
+            mg = d["mortar_grid"]
+            initial_value = np.zeros(mg.num_cells)
+            d[pp.STATE][self.mortar_scalar_variable] = initial_value
 
         # TODO: Scale variables
         if self.current_phase > 0:  # Stimulation phase
@@ -535,6 +565,9 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         # discretizing only the term you need!
 
         # TODO: Discretize only the terms you need.
+        # The LHS of mechanics equation has no time-dependent terms (3D)
+        # The LHS of flow equation has no time-dependent terms (3D)
+        # We don't update fracture aperture, so flow on the fracture is also not time-dependent (LHS) (2D)
         self.discretize()
 
     @trace(logger, timeit=False)
@@ -569,14 +602,15 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         """
 
         # For the initialization phase, we use the following
-        # start time
-        self.time = - 6 * pp.HOUR
-        # time step
-        self.time_step = 3 * pp.HOUR
-        # end time
-        self.end_time = 0
-
-        # self.time_step = 30 * pp.MINUTE
+        # # start time
+        # self.time = - 72 * pp.HOUR
+        # # time step
+        # self.time_step = 24 * pp.HOUR
+        # # end time
+        # self.end_time = 0
+        self.time = 0
+        self.time_step = 40 * pp.MINUTE
+        self.end_time = 40 * pp.MINUTE
 
     def prepare_main_run(self):
         """ Adjust parameters between initial run and main run
@@ -595,7 +629,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         # time step
         self.time_step = 5 * pp.MINUTE
         # end time
-        self.end_time = 40 * pp.MINUTE  # TODO: Change back to 40 minutes.
+        self.end_time = 20 * pp.MINUTE  # TODO: Change back to 40 minutes.
 
         # Store initial displacements
         for g, d in self.gb:
@@ -606,11 +640,9 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         for e, d in self.gb.edges():
             if e[0].dim == self.Nd:
                 u = d[pp.STATE][self.mortar_displacement_variable]
-
-
                 d["initial_cell_displacements"] = u
 
-    def simulation_protocol(self):
+    def simulation_protocol(self) -> None:
         """ Adjust time step and other parameters for simulation protocol
 
                 Here, we consider Doetsch et al (2018) [see e.g. p. 78/79 or App. J]
@@ -631,7 +663,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
                 """
         time_intervals = [
             # Phase 0: 0 l/min
-            0,
+            1e-10,
             # Phase 1: 10 l/min
             10 * pp.MINUTE,
             # Phase 2: 15 l/min
@@ -643,17 +675,21 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
             # Phase 5: 0 l/min
         ]
 
-        injection_amount = [
-            0,      # Phase 0
-            10,     # Phase 1
-            15,     # Phase 2
-            20,     # Phase 3
-            25,     # Phase 4
-            0,      # Phase 5
-        ]
+        # TODO: TEMPORARY CONSTANT INJECTION
+        injection_amount = [20] * 6
+
+        # injection_amount = [
+        #     0,      # Phase 0
+        #     10,     # Phase 1
+        #     15,     # Phase 2
+        #     20,     # Phase 3
+        #     25,     # Phase 4
+        #     0,      # Phase 5
+        # ]
         next_phase = np.searchsorted(time_intervals, self.time, side='right')
         if next_phase > self.current_phase:
-            logger.info(f"A new phase has started: Phase {next_phase}")
+            logger.info(f"A new phase has started: Phase {next_phase}. "
+                        f"Injection set to {injection_amount[next_phase]} l/min")
 
         # Current phase number:
         self.current_phase = next_phase
@@ -714,6 +750,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         u_mech_prev = prev_solution[mech_dof] * self.length_scale
         u_mech_init = init_solution[mech_dof] * self.length_scale
 
+        # TODO: Check if scaling of contact variable
         contact_now = solution[contact_dof] * self.scalar_scale * self.length_scale ** 2
         contact_prev = prev_solution[contact_dof] * self.scalar_scale * self.length_scale ** 2
         contact_init = init_solution[contact_dof] * self.scalar_scale * self.length_scale ** 2
@@ -817,3 +854,12 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         """
         return 480.0 * pp.METER - self.length_scale * coords[2]
 
+
+# TODO: Extract the stimulation protocol from ContactMechanicsBiot by the principle of
+#  separation of data from model.
+class StimulationProtocol:
+    """ This class describes a stimulation protocol for the Biot equations
+    """
+
+    def __init__(self):
+        pass

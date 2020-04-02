@@ -34,7 +34,7 @@ import GTS as gts
 from refinement import refine_mesh
 
 # --- LOGGING UTIL ---
-from util.logging_util import (
+from src.mastersproject.util.logging_util import (
     timer,
     trace,
     __setup_logging,
@@ -201,7 +201,7 @@ def run_abstract_model(
     # -------------------
     params = _prepare_params(
         params=params,
-        setup_loggers=True
+        setup_loggers=True,
     )
 
     setup = model(params=params)
@@ -210,7 +210,7 @@ def run_abstract_model(
     # --- SOLVE THE PROBLEM ---
     # -------------------------
     default_options = {  # Parameters for Newton solver.
-        "max_iterations": 20,
+        "max_iterations": 40,
         "nl_convergence_tol": 1e-6,
         "nl_divergence_tol": 1e5,
     }
@@ -245,8 +245,10 @@ def _prepare_params(
     # --- DEFAULT FOLDER AND FILE RELATED PARAMETERS ---
     # --------------------------------------------------
     _this_file = Path(os.path.abspath(__file__)).parent
-    default_path_head = "default/default_1"
-    _results_path = _this_file / f"results/{default_path_head}"
+    now_as_YYMMDD = pendulum.now().format("YYMMDD")
+    default_path_head = f"{now_as_YYMMDD}/default/default_1"
+    path_head = params.get("path_head", default_path_head)
+    _results_path = _this_file / f"results/{path_head}"
 
     # --------------------------------------------
     # --- DEFAULT MODELLING RELATED PARAMETERS ---
