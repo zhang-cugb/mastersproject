@@ -21,7 +21,10 @@ import numpy as np
 import scipy.sparse as sps
 
 # --- LOGGING UTIL ---
-from src.mastersproject.util.logging_util import timer, trace
+try:
+    from src.mastersproject.util.logging_util import timer, trace
+except ImportError:
+    from util.logging_util import timer, trace
 
 logger = logging.getLogger(__name__)
 

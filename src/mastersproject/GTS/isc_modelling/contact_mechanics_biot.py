@@ -25,7 +25,11 @@ from GTS.isc_modelling.mechanics import ContactMechanicsISC
 import GTS as gts
 
 # --- LOGGING UTIL ---
-from src.mastersproject.util.logging_util import timer, trace
+try:
+    from src.mastersproject.util.logging_util import timer, trace
+except ImportError:
+    from util.logging_util import timer, trace
+
 logger = logging.getLogger(__name__)
 
 
