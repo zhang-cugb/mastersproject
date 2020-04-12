@@ -535,7 +535,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         # The LHS of mechanics equation has no time-dependent terms (3D)
         # The LHS of flow equation has no time-dependent terms (3D)
         # We don't update fracture aperture, so flow on the fracture is also not time-dependent (LHS) (2D)
-        self.discretize()
+        # self.discretize()
 
     @trace(logger, timeit=False)
     def after_newton_convergence(self, solution, errors, iteration_counter):
