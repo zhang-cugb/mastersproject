@@ -569,6 +569,7 @@ class ContactMechanicsISC(ContactMechanics):
 class GrimselGranodiorite(pp.UnitRock):
     def __init__(self):
         super().__init__()
+        from porepy.params import rock as pp_rock
 
         self.PERMEABILITY = 1
         self.THERMAL_EXPANSION = 1
@@ -577,7 +578,7 @@ class GrimselGranodiorite(pp.UnitRock):
         # Lamé parameters
         self.YOUNG_MODULUS = 49 * pp.GIGA * pp.PASCAL  # Krietsch et al 2018 (Data Descriptor) - Dynamic E
         self.POISSON_RATIO = 0.32  # Krietsch et al 2018 (Data Descriptor) - Dynamic Poisson
-        self.LAMBDA, self.MU = pp.params.rock.lame_from_young_poisson(
+        self.LAMBDA, self.MU = pp_rock.lame_from_young_poisson(
             self.YOUNG_MODULUS, self.POISSON_RATIO
         )
 
