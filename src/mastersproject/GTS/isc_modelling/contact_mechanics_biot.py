@@ -456,7 +456,6 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
 
         Inspired by Keilegavlen 2019 (code)
         """
-        # TODO: Check that everything is unscaled correctly
 
         self.save_frac_jump_data()  # Save fracture jump data to pp.STATE
         gb = self.gb
@@ -498,7 +497,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
 
                     if g.dim == 2:
                         d[pp.STATE][self.u_exp] = u_mortar_local
-                        d[pp.STATE][self.traction_exp] = traction * ss * ls**2
+                        d[pp.STATE][self.traction_exp] = traction * ss * ls ** 2
                     # TODO: Check when this statement is actually called
                     else:  # Only called if solving a 2D problem (i.e. this is a 0D fracture intersection)
                         d[pp.STATE][self.u_exp] = np.vstack(u_mortar_local, np.zeros(u_mortar_local.shape[1]))
@@ -810,8 +809,8 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         else:
             # Check relative convergence criterion
             if (
-                difference_in_iterates_mech
-                < tol_convergence * difference_from_init_mech
+                    difference_in_iterates_mech
+                    < tol_convergence * difference_from_init_mech
             ):
                 # converged = True
                 converged_u = True
@@ -825,7 +824,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
             logger.info(f"contact variable converged absolutely")
         else:
             error_contact = (
-                difference_in_iterates_contact / difference_from_init_contact
+                    difference_in_iterates_contact / difference_from_init_contact
             )
 
         # -- Scalar solution --
