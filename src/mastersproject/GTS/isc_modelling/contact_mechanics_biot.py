@@ -227,33 +227,6 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         """ Scaled gravity term. """
         return super().source(g)
 
-    def _permeability_from_transmissivity(self, T, b, theta=None) -> float:
-        """ Compute permeability [m2] from transmissivity [m2/s]
-
-        We can relate permeability, k [m2] with transmissivity, T [m2/s]
-        through the relation
-        k = T * mu / (rho * g * b)
-        where mu is dynamic viscosity [Pa s], rho is density [kg/m3],
-        g in gravitational acceleration [m/s2] and b is aquifer thickness [m]
-
-        Assumes that self.fluid is set
-        """
-        mu = self.fluid.dynamic_viscosity(theta=theta)
-        rho = self.fluid.density(theta=theta)
-        g = pp.GRAVITY_ACCELERATION
-        k = T * mu / (rho * g * b)
-        return k
-
-    def grid_permeability_from_transmissivity(self, g, theta=None) -> np.array:
-        """ Wrapper for permeability_from_transmissivity
-        Returns the uniform permeability over the grid g (np.array of size g.num_cells)
-        """
-        shearzone = self.gb.node_props(g, 'name')
-        T = self.transmissivity[shearzone]  # Unscaled
-        b = self.aquifer_thickness[shearzone]  # Unscaled
-        permeability = self._permeability_from_transmissivity(T, b, theta=theta)  # Unscaled
-        return permeability * np.ones(g.num_cells)
-
     def set_permeability_from_transmissivity(self) -> None:
         """ Set permeability in fracture and matrix from transmissivity
 
@@ -269,29 +242,28 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         viscosity = self.fluid.dynamic_viscosity() * (pp.PASCAL / self.scalar_scale)
         gb = self.gb
         for g, d in gb:
+            permeability, aperture = self.permeability_and_aperture(g)  # scaled quantities
+
             # specific volume
-            aperture = self.grid_aperture_from_transmissivity(g) * (pp.METER / self.length_scale)  # scaled aperture
             specific_volume = np.power(aperture, self.Nd - g.dim)
 
-            k = self.grid_permeability_from_transmissivity(g) * (pp.METER / self.length_scale) ** 2
-
             diffusivity = pp.SecondOrderTensor(
-                specific_volume * k / viscosity
+                specific_volume * permeability / viscosity * np.ones(g.num_cells)
             )
             d[pp.PARAMETERS][self.scalar_parameter_key]["second_order_tensor"] = diffusivity
 
-        # TODO: Understand how permeability works on the mortar grid.
         # Normal permeability inherited from the neighboring fracture g_l
         for e, data_edge in gb.edges():
             mg = data_edge["mortar_grid"]
             g_l, _ = gb.nodes_of_edge(e)  # get the lower-dimensional neighbor.
 
-            aperture = self.grid_aperture_from_transmissivity(g_l) * (pp.METER / self.length_scale)  # scaled aperture
+            # Compute quantities from transmissivity and aquifer thickness
+            permeability, aperture = self.permeability_and_aperture(g_l)  # scaled quantities
 
             # We assume isotropic permeability in the fracture, i.e. the normal
             # permeability equals the tangential one
-            k = self.grid_permeability_from_transmissivity(g_l) * (pp.METER / self.length_scale) ** 2
-            kappa = k / viscosity  # scaled k/mu
+            kappa = permeability / viscosity * np.ones(g_l.num_cells)  # scaled k/mu
+
             # Division through half the aperture represents taking the (normal) gradient
             normal_diffusivity = mg.slave_to_mortar_int() * np.divide(kappa, aperture / 2)
             data_edge = pp.initialize_data(
@@ -301,43 +273,34 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
                 {"normal_diffusivity": normal_diffusivity},
             )
 
-    def _aperture_from_transmissivity(self, T, b, theta=None) -> float:
-        """ Compute hydraulic aperture [m] from transmissivity [m2/s]
-
-        We use the following relation (derived from cubic law):
-        a = sqrt( 12 * mu * T / (rho * g * b) )
-        where mu is dynamic viscosity [Pa s], rho is density [kg/m3],
-        g is gravitational acceleration [m/s2], and b is aquifer thickness [m]
-
-        Assumes that self.fluid is set
-        """
-        mu = self.fluid.dynamic_viscosity(theta=theta)
-        rho = self.fluid.density(theta=theta)
-        g = pp.GRAVITY_ACCELERATION
-        hydraulic_aperture = np.sqrt(12 * mu * T / (rho * g * b))
-        return hydraulic_aperture
-
-    def grid_aperture_from_transmissivity(self, g: pp.Grid, theta=None) -> np.array:
-        """ Grid wrapper for aperture_from_transmissivity
-        Returns the uniform aperture over the grid g (np.array of size g.num_cells)
-        """
+    def permeability_and_aperture(self, g: pp.Grid, theta=None) -> (float, float):
+        """ Convenience function to compute permeability [m2] and aperture [m] on a grid for given values"""
+        # Compute quantities from transmissivity and aquifer thickness
         shearzone = self.gb.node_props(g, 'name')
-        T = self.transmissivity[shearzone]
-        b = self.aquifer_thickness[shearzone]
-        aperture = self._aperture_from_transmissivity(T, b, theta=theta)  # Unscaled
-        return aperture * np.ones(g.num_cells)
+        transmissivity = self.transmissivity[shearzone]  # Unscaled
+        aquifer_thickness = self.aquifer_thickness[shearzone]  # Unscaled
+
+        # Compute unscaled quantities
+        aperture = self.fluid.aperture_from_transmissivity(T=transmissivity, b=aquifer_thickness, theta=theta)
+        permeability = self.fluid.permeability_from_transmissivity(T=transmissivity, b=aquifer_thickness, theta=theta)
+
+        # scaled permeability and aperture
+        scaled_permeability = permeability * (pp.METER / self.length_scale) ** 2
+        scaled_aperture = aperture * (pp.METER / self.length_scale)
+
+        return scaled_permeability, scaled_aperture
 
     def set_rock_and_fluid(self) -> None:
         """
-        Set rock and fluid properties to those of granite and water.
-        We ignore all temperature effects.
-        Credits: PorePy paper
-        """
+            Set rock and fluid properties to those of granite and water.
+            We ignore all temperature effects.
+            Credits: PorePy paper
+            """
 
         super().set_rock()
 
         # Fluid. Temperature at ISC is 11 degrees average.
-        self.fluid = pp.Water(theta_ref=11)
+        self.fluid = WaterISC(theta_ref=11)
 
     def set_parameters(self) -> None:
         """ Set biot parameters
@@ -401,8 +364,9 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         porosity = self.rock.POROSITY
         for g, d in gb:
             # specific volume
-            aperture = self.grid_aperture_from_transmissivity(g) * (pp.METER / self.length_scale)  # scaled aperture
-            specific_volume = np.power(aperture, self.Nd - g.dim)
+            _, aperture = self.permeability_and_aperture(g)
+            scaled_aperture = aperture * (pp.METER / self.length_scale)  # scaled aperture [m]
+            specific_volume = np.power(scaled_aperture, self.Nd - g.dim)
 
             # Boundary and source conditions
             bc = self.bc_type_scalar(g)
@@ -420,7 +384,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
                 {
                     "bc": bc,
                     "bc_values": bc_values,
-                    "mass_weight": compressibility * porosity * specific_volume,
+                    "mass_weight": compressibility * porosity * specific_volume * np.ones(g.num_cells),
                     "biot_alpha": alpha,
                     "source": source_values,
                     "time_step": self.time_step,
@@ -866,3 +830,41 @@ class StimulationProtocol:
 
     def __init__(self):
         pass
+
+
+class WaterISC(pp.Water):
+    def __init__(self, theta_ref=None):
+        super().__init__(theta_ref)
+
+    def aperture_from_transmissivity(self, T, b, theta=None) -> float:
+        """ Compute hydraulic aperture [m] from transmissivity [m2/s]
+
+        We use the following relation (derived from cubic law):
+        a = sqrt( 12 * mu * T / (rho * g * b) )
+        where mu is dynamic viscosity [Pa s], rho is density [kg/m3],
+        g is gravitational acceleration [m/s2], and b is aquifer thickness [m]
+
+        Assumes that self.fluid is set
+        """
+        mu = self.dynamic_viscosity(theta=theta)
+        rho = self.density(theta=theta)
+        g = pp.GRAVITY_ACCELERATION
+        hydraulic_aperture = np.sqrt(12 * mu * T / (rho * g * b))
+        return hydraulic_aperture
+
+    def permeability_from_transmissivity(self, T, b, theta=None) -> float:
+        """ Compute permeability [m2] from transmissivity [m2/s]
+
+        We can relate permeability, k [m2] with transmissivity, T [m2/s]
+        through the relation
+        k = T * mu / (rho * g * b)
+        where mu is dynamic viscosity [Pa s], rho is density [kg/m3],
+        g in gravitational acceleration [m/s2] and b is aquifer thickness [m]
+
+        Assumes that self.fluid is set
+        """
+        mu = self.dynamic_viscosity(theta=theta)
+        rho = self.density(theta=theta)
+        g = pp.GRAVITY_ACCELERATION
+        k = T * mu / (rho * g * b)
+        return k
