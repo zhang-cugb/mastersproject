@@ -194,6 +194,7 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
                 logger.info(f"Setting non-zero source value for pressure")
 
                 ids, dsts = g.closest_cell(pts, return_distance=True)
+                # TODO: log distance in unscaled lengths
                 logger.info(f"Closest cell found has distance: {dsts[0]:4f}")
 
                 # Tag the injection cell
