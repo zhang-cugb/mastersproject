@@ -177,7 +177,7 @@ class ContactMechanicsISC(ContactMechanics):
             #   Currently, we assume that fracture order is preserved in creation process.
             #   This may be untrue if fractures are (completely) split in the process.
             # Set fracture grid names:
-            self.gb.add_node_props(keys="name")  # Add 'name' as node prop to all grids.
+            self.gb.add_node_props(keys=["name"])  # Add 'name' as node prop to all grids.
             fracture_grids = self.gb.get_grids(lambda g: g.dim == self.Nd - 1)
             assert fracture_grids.size == self.n_frac, "We expect all shear zones to be meshed"
 
@@ -203,7 +203,7 @@ class ContactMechanicsISC(ContactMechanics):
         pp.contact_conditions.set_projections(self.gb)
         self.Nd = gb.dim_max()
         self.n_frac = gb.get_grids(lambda _g: _g.dim == self.Nd - 1).size
-        self.gb.add_node_props(keys="name")  # Add 'name' as node prop to all grids.
+        self.gb.add_node_props(keys=["name"])  # Add 'name' as node prop to all grids.
 
         # Set fracture grid names
         if self.n_frac > 0:
