@@ -256,17 +256,19 @@ class ContactMechanicsBiotISC(ContactMechanicsISC, ContactMechanicsBiot):
         # Normal permeability inherited from the neighboring fracture g_l
         for e, data_edge in gb.edges():
             mg = data_edge["mortar_grid"]
-            g_l, _ = gb.nodes_of_edge(e)  # get the lower-dimensional neighbor.
+            g_l, g_h = gb.nodes_of_edge(e)  # get the lower-dimensional neighbor.
 
             # Compute quantities from transmissivity and aquifer thickness
             permeability, aperture = self.permeability_and_aperture(g_l)  # scaled quantities
+            _, a_h = self.permeability_and_aperture(g_h)  # scaled quantities
 
             # We assume isotropic permeability in the fracture, i.e. the normal
             # permeability equals the tangential one
             kappa = permeability / viscosity * np.ones(g_l.num_cells)  # scaled k/mu
+            specific_volume = np.power(a_h, self.Nd - g_h.dim)
 
             # Division through half the aperture represents taking the (normal) gradient
-            normal_diffusivity = mg.slave_to_mortar_int() * np.divide(kappa, aperture / 2)
+            normal_diffusivity = mg.slave_to_mortar_int() * np.divide(kappa, aperture / 2) * specific_volume
             data_edge = pp.initialize_data(
                 e,
                 data_edge,
